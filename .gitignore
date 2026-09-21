@@ -1,0 +1,12 @@
+# Technische logs (blijven lokaal)
+/storage/logs/*.log
+
+# Composer
+/vendor/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
