@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Crep Care">
+    <rect width="120" height="120" rx="18" fill="#14141b"/>
+    <path d="M20 72c10 0 16-6 22-14s12-16 22-16c8 0 14 6 14 14v16H20z" fill="#3ddc97"/>
+    <text x="60" y="100" text-anchor="middle" font-family="Archivo Black, Arial Black, sans-serif" font-size="14" fill="#ffffff">CREP CARE</text>
+</svg>
