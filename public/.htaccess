@@ -1,0 +1,15 @@
+# Alle verzoeken die niet naar een bestaand bestand wijzen, gaan naar de
+# front controller (public/index.php). Nodig voor Apache (WAMP/XAMPP).
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Directory listing uitzetten.
+Options -Indexes
