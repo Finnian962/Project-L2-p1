@@ -19,6 +19,7 @@ use App\Controllers\HomeController;
 use App\Controllers\PartnerController;
 use App\Controllers\StandController;
 use App\Controllers\TicketController;
+use App\Controllers\VerkoperController;
 use App\Core\Logger;
 use App\Core\Request;
 use App\Core\Router;
@@ -37,6 +38,7 @@ $router->get('/tickets', TicketController::class, 'index');
 $router->get('/stands', StandController::class, 'index');
 $router->get('/partners', PartnerController::class, 'index');
 $router->get('/side-stands', PartnerController::class, 'sideStands');
+$router->get('/verkopers', VerkoperController::class, 'index');
 $router->get('/verkopers/{id}/contact', PartnerController::class, 'contactpersonen');
 $router->get('/info', HomeController::class, 'info');
 
