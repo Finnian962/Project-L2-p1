@@ -14,4 +14,9 @@ use RuntimeException;
  */
 final class DatabaseException extends RuntimeException
 {
+    /**
+     * Vaste, gebruikersvriendelijke melding bij een database-unhappy flow
+     * (verkeerde databasenaam, database plat, query mislukt).
+     */
+    public const GEBRUIKERSMELDING = 'Onze excuses, er is een error. We zijn ermee bezig.';
 }

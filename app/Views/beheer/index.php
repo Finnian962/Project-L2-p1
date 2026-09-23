@@ -79,14 +79,14 @@ $totaalOmzet = array_sum(array_column($ticketverkoop, 'omzet'))
                     <tbody>
                         <?php foreach ($ticketverkoop as $regel) : ?>
                             <tr>
-                                <th scope="row">
+                                <th scope="row" data-label="Event">
                                     <a href="<?= e(url('/events/' . $regel['id'])) ?>"><?= e($regel['naam']) ?></a>
                                 </th>
-                                <td><?= e(datumNl((string) $regel['datum'])) ?></td>
-                                <td><?= e($regel['aantal_boekingen']) ?></td>
-                                <td><?= e($regel['aantal_bezoekers']) ?></td>
-                                <td><?= e($regel['verkochte_tickets']) ?></td>
-                                <td><?= e(euro($regel['omzet'])) ?></td>
+                                <td data-label="Datum"><?= e(datumNl((string) $regel['datum'])) ?></td>
+                                <td data-label="Boekingen"><?= e($regel['aantal_boekingen']) ?></td>
+                                <td data-label="Bezoekers"><?= e($regel['aantal_bezoekers']) ?></td>
+                                <td data-label="Tickets"><?= e($regel['verkochte_tickets']) ?></td>
+                                <td data-label="Omzet"><?= e(euro($regel['omzet'])) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -110,14 +110,14 @@ $totaalOmzet = array_sum(array_column($ticketverkoop, 'omzet'))
                     <tbody>
                         <?php foreach ($standverhuur as $regel) : ?>
                             <tr>
-                                <th scope="row">
+                                <th scope="row" data-label="Event">
                                     <a href="<?= e(url('/events/' . $regel['id'])) ?>"><?= e($regel['naam']) ?></a>
                                 </th>
-                                <td><?= e($regel['aantal_stands']) ?></td>
-                                <td><?= e($regel['verhuurde_stands']) ?></td>
-                                <td><?= e($regel['vrije_stands']) ?></td>
-                                <td><?= e($regel['aantal_verkopers']) ?></td>
-                                <td><?= e(euro($regel['omzet'])) ?></td>
+                                <td data-label="Stands"><?= e($regel['aantal_stands']) ?></td>
+                                <td data-label="Verhuurd"><?= e($regel['verhuurde_stands']) ?></td>
+                                <td data-label="Vrij"><?= e($regel['vrije_stands']) ?></td>
+                                <td data-label="Verkopers"><?= e($regel['aantal_verkopers']) ?></td>
+                                <td data-label="Omzet"><?= e(euro($regel['omzet'])) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

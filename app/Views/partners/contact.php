@@ -56,13 +56,13 @@ $verkoperNaam = $contactpersonen === [] ? '' : $contactpersonen[0]->verkoperNaam
                     <tbody>
                         <?php foreach ($contactpersonen as $contactpersoon) : ?>
                             <tr>
-                                <th scope="row"><?= e($contactpersoon->naam) ?></th>
-                                <td>
+                                <th scope="row" data-label="Naam"><?= e($contactpersoon->naam) ?></th>
+                                <td data-label="Telefoonnummer">
                                     <a href="<?= e($contactpersoon->telefoonLink()) ?>">
                                         <?= e($contactpersoon->telefoonnummer) ?>
                                     </a>
                                 </td>
-                                <td>
+                                <td data-label="E-mailadres">
                                     <a href="mailto:<?= e($contactpersoon->emailadres) ?>">
                                         <?= e($contactpersoon->emailadres) ?>
                                     </a>

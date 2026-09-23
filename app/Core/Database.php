@@ -56,7 +56,7 @@ final class Database
             ]);
 
             throw new DatabaseException(
-                'De verbinding met de database is mislukt. Probeer het later opnieuw.',
+                DatabaseException::GEBRUIKERSMELDING,
                 0,
                 $fout
             );

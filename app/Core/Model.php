@@ -71,7 +71,7 @@ abstract class Model
             ]);
 
             throw new DatabaseException(
-                'De gegevens konden niet worden opgehaald. Probeer het later opnieuw.',
+                DatabaseException::GEBRUIKERSMELDING,
                 0,
                 $fout
             );

@@ -22,9 +22,16 @@
                 : 'Menu openen';
         });
 
+        hoofdmenu.addEventListener('click', function (gebeurtenis) {
+            if (gebeurtenis.target.closest('a') && window.innerWidth < 1100) {
+                hoofdmenu.classList.remove('is-open');
+                menuKnop.setAttribute('aria-expanded', 'false');
+            }
+        });
+
         /* Sluit het menu wanneer het scherm groot genoeg is voor de balkweergave. */
         window.addEventListener('resize', function () {
-            if (window.innerWidth >= 900) {
+            if (window.innerWidth >= 1100) {
                 hoofdmenu.classList.remove('is-open');
                 menuKnop.setAttribute('aria-expanded', 'false');
             }

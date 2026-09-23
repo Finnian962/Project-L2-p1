@@ -46,9 +46,9 @@ declare(strict_types=1);
     <div class="container">
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
-                'soort' => 'fout',
-                'kop'   => 'De events konden niet worden opgehaald',
-                'tekst' => $foutmelding,
+                'soort'      => 'fout',
+                'kop'        => 'Onze excuses',
+                'tekst'      => $foutmelding,
                 'actieUrl'   => url('/events'),
                 'actieLabel' => 'Opnieuw proberen',
             ]) ?>

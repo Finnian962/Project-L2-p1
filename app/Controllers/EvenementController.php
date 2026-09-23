@@ -27,6 +27,12 @@ final class EvenementController extends Controller
     private const MELDING_GEEN_EVENTS = 'Er zijn nog geen events aangemaakt.';
 
     /**
+     * Melding bij een storing: verkeerde databasenaam, database plat,
+     * of een eventlink die niet (meer) bestaat.
+     */
+    private const MELDING_STORING = DatabaseException::GEBRUIKERSMELDING;
+
+    /**
      * GET /events
      * Overzicht van alle actieve events, gesorteerd op datum.
      */
@@ -63,7 +69,7 @@ final class EvenementController extends Controller
                 'foutmelding'        => null,
             ]);
         } catch (DatabaseException $fout) {
-            // Unhappy flow: de database is niet bereikbaar of de query mislukt.
+            // Unhappy flow: database plat, verkeerde databasenaam of query mislukt.
             Logger::exception($fout, 'Eventoverzicht kon niet worden geladen');
 
             $this->toon('evenementen/index', [
@@ -73,7 +79,7 @@ final class EvenementController extends Controller
                 'tijdslotenPerEvent' => [],
                 'zoekterm'           => $zoekterm,
                 'melding'            => null,
-                'foutmelding'        => $fout->getMessage(),
+                'foutmelding'        => self::MELDING_STORING,
             ], 503);
         }
     }
@@ -87,7 +93,7 @@ final class EvenementController extends Controller
         // Unhappy flow: een id dat geen getal is, bestaat sowieso niet.
         if (!ctype_digit($id)) {
             Logger::warning('Ongeldig event-id opgevraagd', ['id' => $id]);
-            $this->toonNietGevonden($id);
+            $this->toonNietGevonden();
 
             return;
         }
@@ -100,7 +106,7 @@ final class EvenementController extends Controller
             // Unhappy flow: het event bestaat niet of is op inactief gezet.
             if ($evenement === null) {
                 Logger::warning('Event niet gevonden', ['id' => $evenementId]);
-                $this->toonNietGevonden($id);
+                $this->toonNietGevonden();
 
                 return;
             }
@@ -116,28 +122,28 @@ final class EvenementController extends Controller
                 'foutmelding' => null,
             ]);
         } catch (DatabaseException $fout) {
+            // Unhappy flow: database plat of verkeerde databasenaam bij het openen van een event.
             Logger::exception($fout, 'Eventdetails konden niet worden geladen');
 
             $this->toon('fouten/melding', [
-                'titel'       => 'Event niet beschikbaar',
+                'titel'       => 'Onze excuses',
                 'pad'         => '/events',
-                'kop'         => 'Het event kan even niet getoond worden',
-                'foutmelding' => $fout->getMessage(),
+                'kop'         => 'Onze excuses',
+                'foutmelding' => self::MELDING_STORING,
             ], 503);
         }
     }
 
     /**
-     * Toont de 404-pagina voor een event dat niet (meer) bestaat.
+     * Unhappy flow: de eventlink bestaat niet of het event is inactief.
      */
-    private function toonNietGevonden(string $id): void
+    private function toonNietGevonden(): void
     {
         $this->toon('fouten/melding', [
-            'titel'       => 'Event niet gevonden',
+            'titel'       => 'Onze excuses',
             'pad'         => '/events',
-            'kop'         => 'Dit event bestaat niet (meer)',
-            'foutmelding' => 'Het event met nummer "' . $id . '" is niet gevonden. '
-                . 'Bekijk het overzicht voor alle geplande edities.',
+            'kop'         => 'Onze excuses',
+            'foutmelding' => self::MELDING_STORING,
         ], 404);
     }
 }
