@@ -74,37 +74,21 @@ $pijlers = [
     </div>
 </section>
 
-<section class="sectie">
-    <div class="container">
-        <?php if ($foutmelding !== null) : ?>
-            <?= partial('melding', [
-                'soort' => 'fout',
-                'kop'   => 'De gegevens konden niet worden opgehaald',
-                'tekst' => $foutmelding,
-                'actieUrl'   => url('/'),
-                'actieLabel' => 'Opnieuw proberen',
-            ]) ?>
-        <?php elseif ($melding !== null) : ?>
-            <?= partial('melding', [
-                'soort' => 'waarschuwing',
-                'kop'   => 'Nog geen edities gepland',
-                'tekst' => $melding,
-            ]) ?>
-        <?php endif; ?>
-
-        <h2 class="sectie__titel">Waar draait het om</h2>
-        <div class="raster raster--pijlers">
-            <?php foreach ($pijlers as $pijler) : ?>
-                <article class="pijler">
-                    <h3 class="pijler__titel"><?= e($pijler['titel']) ?></h3>
-                    <p class="pijler__tekst"><?= e($pijler['tekst']) ?></p>
-                </article>
-            <?php endforeach; ?>
-        </div>
-    </div>
-</section>
-
 <?php if ($evenementen !== []) : ?>
+    <section class="sectie">
+        <div class="container">
+            <h2 class="sectie__titel">Waar draait het om</h2>
+            <div class="raster raster--pijlers">
+                <?php foreach ($pijlers as $pijler) : ?>
+                    <article class="pijler">
+                        <h3 class="pijler__titel"><?= e($pijler['titel']) ?></h3>
+                        <p class="pijler__tekst"><?= e($pijler['tekst']) ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
     <section class="sectie sectie--gedempt">
         <div class="container">
             <div class="sectie__kop">
@@ -119,45 +103,56 @@ $pijlers = [
             </div>
         </div>
     </section>
-<?php endif; ?>
 
-<?php if ($partners !== []) : ?>
+    <?php if ($partners !== []) : ?>
+        <section class="sectie">
+            <div class="container">
+                <div class="sectie__kop">
+                    <h2 class="sectie__titel">Onze partners</h2>
+                    <a class="sectie__link" href="<?= e(url('/partners')) ?>">Alle partners</a>
+                </div>
+
+                <div class="raster raster--verkopers">
+                    <?php foreach (array_slice($partners, 0, 3) as $partner) : ?>
+                        <?= partial('verkoper-kaart', ['verkoper' => $partner]) ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($sideStands !== []) : ?>
+        <section class="sectie sectie--gedempt">
+            <div class="container">
+                <div class="sectie__kop">
+                    <h2 class="sectie__titel">Side-stands</h2>
+                    <a class="sectie__link" href="<?= e(url('/side-stands')) ?>">Alle side-stands</a>
+                </div>
+                <p class="sectie__tekst">
+                    Eten en drinken, een kinderhoek, customizers, tattoo- en barbershops en DJ-sets:
+                    het hele weekend door.
+                </p>
+
+                <ul class="chips">
+                    <?php foreach ($sideStands as $sideStand) : ?>
+                        <li class="chip">
+                            <strong><?= e($sideStand->naam) ?></strong>
+                            <span><?= e($sideStand->verkooptSoort) ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </section>
+    <?php endif; ?>
+
+<?php elseif ($melding !== null) : ?>
     <section class="sectie">
         <div class="container">
-            <div class="sectie__kop">
-                <h2 class="sectie__titel">Onze partners</h2>
-                <a class="sectie__link" href="<?= e(url('/partners')) ?>">Alle partners</a>
-            </div>
-
-            <div class="raster raster--verkopers">
-                <?php foreach (array_slice($partners, 0, 3) as $partner) : ?>
-                    <?= partial('verkoper-kaart', ['verkoper' => $partner]) ?>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </section>
-<?php endif; ?>
-
-<?php if ($sideStands !== []) : ?>
-    <section class="sectie sectie--gedempt">
-        <div class="container">
-            <div class="sectie__kop">
-                <h2 class="sectie__titel">Side-stands</h2>
-                <a class="sectie__link" href="<?= e(url('/side-stands')) ?>">Alle side-stands</a>
-            </div>
-            <p class="sectie__tekst">
-                Eten en drinken, een kinderhoek, customizers, tattoo- en barbershops en DJ-sets:
-                het hele weekend door.
-            </p>
-
-            <ul class="chips">
-                <?php foreach ($sideStands as $sideStand) : ?>
-                    <li class="chip">
-                        <strong><?= e($sideStand->naam) ?></strong>
-                        <span><?= e($sideStand->verkooptSoort) ?></span>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
+            <?= partial('melding', [
+                'soort' => 'waarschuwing',
+                'kop'   => 'Nog geen edities gepland',
+                'tekst' => $melding,
+            ]) ?>
         </div>
     </section>
 <?php endif; ?>
