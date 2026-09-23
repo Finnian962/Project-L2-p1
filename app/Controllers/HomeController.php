@@ -47,7 +47,7 @@ final class HomeController extends Controller
 
             if ($evenementen === []) {
                 // Unhappy flow: er is nog geen enkel event aangemaakt.
-                $gegevens['melding'] = 'Er zijn nog geen events aangemaakt.';
+                $gegevens['melding'] = 'Er is momenteel geen content beschikbaar.';
                 Logger::warning('Homepagina geladen zonder events');
             }
         } catch (DatabaseException $fout) {
