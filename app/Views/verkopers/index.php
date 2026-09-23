@@ -9,8 +9,13 @@ declare(strict_types=1);
  *               gekoppeld zijn.
  * Unhappy flow: melding wanneer er geen verkopers zijn of de database faalt.
  *
- * @var string $titel
- * @var string $pad
+ * @var string                      $titel
+ * @var string                      $pad
+ * @var list<\App\Entities\Verkoper> $verkopers
+ * @var string                      $zoekterm
+ * @var string                      $soort
+ * @var string|null                 $melding
+ * @var string|null                 $foutmelding
  */
 ?>
 <section class="pagina-kop">
@@ -26,6 +31,16 @@ declare(strict_types=1);
 
 <section class="sectie">
     <div class="container">
-        <!-- Wordt in de volgende stap gevuld met de verkoperskaarten. -->
+        <p class="resultaat-telling">
+            <strong><?= e(count($verkopers)) ?></strong>
+            <?= count($verkopers) === 1 ? 'verkoper gevonden' : 'verkopers gevonden' ?>
+            · gesorteerd op soort en naam
+        </p>
+
+        <div class="raster raster--verkopers">
+            <?php foreach ($verkopers as $verkoper) : ?>
+                <?= partial('verkoper-kaart', ['verkoper' => $verkoper]) ?>
+            <?php endforeach; ?>
+        </div>
     </div>
 </section>
