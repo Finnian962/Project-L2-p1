@@ -71,7 +71,7 @@ final class TicketController extends Controller
 
             // Unhappy flow: het event bestaat, maar heeft nog geen tijdsloten.
             if ($gegevens['tijdsloten'] === []) {
-                $gegevens['melding'] = 'Voor dit event zijn nog geen toegangstijden en prijzen ingesteld.';
+                $gegevens['melding'] = 'Er zijn momenteel geen tijdsloten beschikbaar.';
                 Logger::warning('Ticketpagina zonder tijdsloten', ['event' => $evenement->id]);
             }
 
