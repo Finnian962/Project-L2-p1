@@ -27,8 +27,8 @@ declare(strict_types=1);
             <span class="badge badge--rood">Uitverkocht</span>
         <?php elseif ($tijdslot->isBijnaVol()) : ?>
             <span class="badge badge--oranje">Nog <?= e($tijdslot->beschikbareTickets) ?> plaatsen</span>
-        <?php else : ?>
-            <?= e($tijdslot->beschikbareTickets) ?> van <?= e($tijdslot->capaciteit) ?> tickets beschikbaar
         <?php endif; ?>
+        <!-- Altijd het aantal beschikbare tickets ten opzichte van het totaal. -->
+        <?= e($tijdslot->beschikbareTickets) ?> van <?= e($tijdslot->capaciteit) ?> tickets beschikbaar
     </p>
 </article>
