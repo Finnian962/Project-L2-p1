@@ -20,6 +20,7 @@ $menu = [
     '/stands'      => 'Stand huren',
     '/partners'    => 'Partners',
     '/side-stands' => 'Side-stands',
+    '/verkopers'   => 'Verkopers',
     '/info'        => 'Info',
     '/beheer'      => 'Beheer',
 ];

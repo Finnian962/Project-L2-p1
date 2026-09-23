@@ -14,7 +14,6 @@ declare(strict_types=1);
  * @var string|null                   $foutmelding
  */
 ?>
-<section class="pagina-kop">
     <div class="container">
         <p class="pagina-kop__label">Voor verkopers</p>
         <h1 class="pagina-kop__titel">Huur een stand</h1>
@@ -62,6 +61,7 @@ declare(strict_types=1);
         <?php endif; ?>
 
         <?php if ($evenement !== null && $standtypes !== []) : ?>
+            <!-- Content: show stand types when event and stands exist -->
             <div class="sectie__kop">
                 <h2 class="sectie__titel"><?= e($evenement->naam) ?></h2>
                 <p class="sectie__meta">

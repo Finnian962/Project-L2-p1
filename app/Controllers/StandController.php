@@ -45,7 +45,7 @@ final class StandController extends Controller
 
             // Unhappy flow: zonder events kunnen er geen stands verhuurd worden.
             if ($evenementen === []) {
-                $gegevens['melding'] = 'Er zijn nog geen events aangemaakt.';
+                $gegevens['melding'] = 'Er zijn momenteel geen stands beschikbaar.';
                 Logger::warning('Standpagina geladen zonder events');
 
                 $this->toon('stands/index', $gegevens);
