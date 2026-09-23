@@ -24,18 +24,29 @@ final class VerkoperController extends Controller
      */
     public function index(Request $request): void
     {
+        $soort = $request->query('soort');
+
         $gegevens = [
             'titel'       => 'Verkopers',
             'pad'         => '/verkopers',
             'verkopers'   => [],
             'zoekterm'    => '',
-            'soort'       => '',
+            'soort'       => $soort,
             'melding'     => null,
             'foutmelding' => null,
         ];
 
         try {
-            $gegevens['verkopers'] = (new VerkoperModel())->haalOverzicht();
+            $verkopers = (new VerkoperModel())->haalOverzicht(0, $soort);
+            $gegevens['verkopers'] = $verkopers;
+
+            // Unhappy flow: nog geen verkopers (voor dit soort) op een actief evenement.
+            if ($verkopers === []) {
+                $gegevens['melding'] = $soort === ''
+                    ? 'Er zijn nog geen verkopers bekend voor de komende editie.'
+                    : 'Er zijn geen verkopers bekend die "' . $soort . '" verkopen.';
+                Logger::warning('Verkopersoverzicht zonder resultaten', ['soort' => $soort]);
+            }
         } catch (DatabaseException $fout) {
             Logger::exception($fout, 'Verkopersoverzicht kon niet worden geladen');
             $gegevens['foutmelding'] = $fout->getMessage();
