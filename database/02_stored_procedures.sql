@@ -21,6 +21,7 @@ DROP PROCEDURE IF EXISTS sp_contactpersoon_per_verkoper;
 DROP PROCEDURE IF EXISTS sp_rapport_ticketverkoop;
 DROP PROCEDURE IF EXISTS sp_rapport_standverhuur;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_events;
+DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_tijdsloten;
 
 DELIMITER $$
 
@@ -385,6 +386,32 @@ CREATE PROCEDURE sp_demo_zichtbaarheid_events(IN p_is_actief TINYINT)
 BEGIN
     UPDATE evenement
     SET is_actief = IF(p_is_actief = 1, 1, 0);
+
+    SELECT ROW_COUNT() AS aantal_gewijzigd;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_demo_zichtbaarheid_tijdsloten
+-- Hulpprocedure voor de sprintreview: zet de tijdsloten (tabel prijs) van
+-- een evenement tijdelijk op inactief om de unhappy flow van de ticketpagina
+-- te demonstreren ("Er zijn momenteel geen tijdsloten beschikbaar."),
+-- of weer op actief voor de happy flow.
+-- Parameter p_evenement_id is optioneel: 0 of NULL verbergt de tijdsloten
+-- van álle evenementen.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_demo_zichtbaarheid_tijdsloten(
+    IN p_evenement_id INT UNSIGNED,
+    IN p_is_actief    TINYINT
+)
+BEGIN
+    IF p_evenement_id IS NULL OR p_evenement_id = 0 THEN
+        UPDATE prijs
+        SET is_actief = IF(p_is_actief = 1, 1, 0);
+    ELSE
+        UPDATE prijs
+        SET is_actief = IF(p_is_actief = 1, 1, 0)
+        WHERE evenement_id = p_evenement_id;
+    END IF;
 
     SELECT ROW_COUNT() AS aantal_gewijzigd;
 END$$
