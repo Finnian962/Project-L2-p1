@@ -31,16 +31,34 @@ declare(strict_types=1);
 
 <section class="sectie">
     <div class="container">
-        <p class="resultaat-telling">
-            <strong><?= e(count($verkopers)) ?></strong>
-            <?= count($verkopers) === 1 ? 'verkoper gevonden' : 'verkopers gevonden' ?>
-            · gesorteerd op soort en naam
-        </p>
+        <?php if ($foutmelding !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'fout',
+                'kop'   => 'De verkopers konden niet worden opgehaald',
+                'tekst' => $foutmelding,
+                'actieUrl'   => url('/verkopers'),
+                'actieLabel' => 'Opnieuw proberen',
+            ]) ?>
+        <?php elseif ($melding !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'waarschuwing',
+                'kop'   => 'Nog geen verkopers',
+                'tekst' => $melding,
+                'actieUrl'   => url('/stands'),
+                'actieLabel' => 'Stand aanvragen',
+            ]) ?>
+        <?php else : ?>
+            <p class="resultaat-telling">
+                <strong><?= e(count($verkopers)) ?></strong>
+                <?= count($verkopers) === 1 ? 'verkoper gevonden' : 'verkopers gevonden' ?>
+                · gesorteerd op soort en naam
+            </p>
 
-        <div class="raster raster--verkopers">
-            <?php foreach ($verkopers as $verkoper) : ?>
-                <?= partial('verkoper-kaart', ['verkoper' => $verkoper]) ?>
-            <?php endforeach; ?>
-        </div>
+            <div class="raster raster--verkopers">
+                <?php foreach ($verkopers as $verkoper) : ?>
+                    <?= partial('verkoper-kaart', ['verkoper' => $verkoper]) ?>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </section>
