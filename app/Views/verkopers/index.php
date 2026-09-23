@@ -50,6 +50,24 @@ $maakLink = static function (string $waarde) use ($zoekterm, $soort): string {
             komende editie: van sneakerstores tot customizers en streetfood.
         </p>
 
+        <form class="zoekbalk" method="get" action="<?= e(url('/verkopers')) ?>" role="search">
+            <label class="visueel-verborgen" for="zoekVerkoper">Zoek op naam van de verkoper</label>
+            <input
+                type="search"
+                id="zoekVerkoper"
+                name="zoek"
+                value="<?= e($zoekterm) ?>"
+                placeholder="Zoek op naam van de verkoper, bijvoorbeeld Kickz"
+            >
+            <?php if ($soort !== '') : ?>
+                <input type="hidden" name="soort" value="<?= e($soort) ?>">
+            <?php endif; ?>
+            <button class="knop" type="submit">Zoeken</button>
+            <?php if ($zoekterm !== '' || $soort !== '') : ?>
+                <a class="knop knop--leeg" href="<?= e(url('/verkopers')) ?>">Wis filter</a>
+            <?php endif; ?>
+        </form>
+
         <div class="kiezer">
             <span class="kiezer__label">Filter op soort</span>
             <?php foreach ($soorten as $waarde => $label) : ?>
@@ -91,7 +109,7 @@ $maakLink = static function (string $waarde) use ($zoekterm, $soort): string {
 
             <div class="raster raster--verkopers">
                 <?php foreach ($verkopers as $verkoper) : ?>
-                    <?= partial('verkoper-kaart', ['verkoper' => $verkoper]) ?>
+                    <?= partial('verkoper-kaart', ['verkoper' => $verkoper, 'toonContactlink' => true]) ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
