@@ -11,11 +11,13 @@ final class Request
 {
     /**
      * @param array<string, string> $queryParameters
+     * @param array<string, string> $postParameters
      */
     private function __construct(
         private readonly string $methode,
         private readonly string $pad,
-        private readonly array $queryParameters
+        private readonly array $queryParameters,
+        private readonly array $postParameters = []
     ) {
     }
 
@@ -37,7 +39,12 @@ final class Request
         /** @var array<string, string> $query */
         $query = array_map('strval', $_GET);
 
-        return new self($methode, $pad, $query);
+        // Alleen gewone velden: een array-veld (bijv. titel[]) negeren we,
+        // zodat validatie in de controller er melding van kan maken.
+        /** @var array<string, string> $post */
+        $post = array_filter($_POST, 'is_string');
+
+        return new self($methode, $pad, $query, $post);
     }
 
     /**
@@ -87,5 +94,21 @@ final class Request
     public function heeftQuery(string $sleutel): bool
     {
         return array_key_exists($sleutel, $this->queryParameters);
+    }
+
+    /**
+     * Geeft een veld uit het formulier terug (POST), bijvoorbeeld de titel.
+     *
+     * De waarde wordt alvast opgeschoond (trim), zodat de controller alleen
+     * nog hoeft te controleren of er iets ingevuld is.
+     */
+    public function post(string $sleutel, string $standaard = ''): string
+    {
+        return trim($this->postParameters[$sleutel] ?? $standaard);
+    }
+
+    public function heeftPost(string $sleutel): bool
+    {
+        return array_key_exists($sleutel, $this->postParameters);
     }
 }

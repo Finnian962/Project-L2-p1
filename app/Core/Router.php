@@ -25,8 +25,28 @@ final class Router
      */
     public function get(string $patroon, string $controller, string $actie): void
     {
+        $this->registreer('GET', $patroon, $controller, $actie);
+    }
+
+    /**
+     * Registreert een POST-route, bijvoorbeeld voor een formulier.
+     *
+     * @param class-string $controller
+     */
+    public function post(string $patroon, string $controller, string $actie): void
+    {
+        $this->registreer('POST', $patroon, $controller, $actie);
+    }
+
+    /**
+     * Legt één route vast.
+     *
+     * @param class-string $controller
+     */
+    private function registreer(string $methode, string $patroon, string $controller, string $actie): void
+    {
         $this->routes[] = [
-            'methode'    => 'GET',
+            'methode'    => $methode,
             'patroon'    => $patroon,
             'controller' => $controller,
             'actie'      => $actie,
