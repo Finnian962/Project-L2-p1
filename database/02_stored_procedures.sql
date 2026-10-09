@@ -18,6 +18,10 @@ DROP PROCEDURE IF EXISTS sp_verkoper_overzicht;
 DROP PROCEDURE IF EXISTS sp_partner_overzicht;
 DROP PROCEDURE IF EXISTS sp_sidestand_overzicht;
 DROP PROCEDURE IF EXISTS sp_contactpersoon_per_verkoper;
+DROP PROCEDURE IF EXISTS sp_ticket_toevoegen;
+DROP PROCEDURE IF EXISTS sp_tijdslot_toevoegen;
+DROP PROCEDURE IF EXISTS sp_bestelling_plaatsen;
+DROP PROCEDURE IF EXISTS sp_bestelling_bevesting;
 DROP PROCEDURE IF EXISTS sp_rapport_ticketverkoop;
 DROP PROCEDURE IF EXISTS sp_rapport_standverhuur;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_events;
@@ -374,6 +378,288 @@ BEGIN
     WHERE e.is_actief = 1
     GROUP BY e.id, e.naam, e.datum, e.locatie
     ORDER BY e.datum ASC;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_tijdslot_toevoegen
+-- Maakt een nieuw tijdslot (tabel prijs) aan: de tweede schrijfactie (create)
+-- van het project.
+--
+-- Een medewerker vult editie, dag, starttijd en tarief in. Het nieuwe
+-- tijdslot verschijnt daarna direct op de ticketpagina (/tickets) met de
+-- beschikbaarheid van de editie (evenement.aantal_tickets_per_tijdslot), zodat
+-- er meteen tickets voor verkocht kunnen worden.
+--
+-- Controleert of de editie actief is, of de dag niet vóór de editie valt en of
+-- er op dit tijdstip nog geen tijdslot staat (UNIQUE KEY uq_prijs_slot).
+-- Geeft het nieuwe tijdslotnummer (prijs.id) terug.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_tijdslot_toevoegen(
+    IN p_evenement_id INT UNSIGNED,
+    IN p_datum        DATE,
+    IN p_tijdslot     TIME,
+    IN p_tarief       DECIMAL(6, 2),
+    IN p_opmerking    VARCHAR(255)
+)
+BEGIN
+    DECLARE v_startdatum DATE DEFAULT NULL;
+    DECLARE v_bestaand   INT  DEFAULT 0;
+
+    IF p_datum IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een datum in.';
+    END IF;
+
+    IF p_tijdslot IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een starttijd in.';
+    END IF;
+
+    IF p_tarief IS NULL OR p_tarief <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een geldig tarief in.';
+    END IF;
+
+    SELECT e.datum
+      INTO v_startdatum
+    FROM evenement e
+    WHERE e.id = p_evenement_id
+      AND e.is_actief = 1;
+
+    IF v_startdatum IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De gekozen editie is niet gevonden of niet actief.';
+    END IF;
+
+    IF p_datum < v_startdatum THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De datum mag niet voor de start van de editie liggen.';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_bestaand
+    FROM prijs
+    WHERE evenement_id = p_evenement_id
+      AND datum = p_datum
+      AND tijdslot = p_tijdslot;
+
+    IF v_bestaand > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Voor dit tijdstip bestaat al een tijdslot.';
+    END IF;
+
+    INSERT INTO prijs (evenement_id, datum, tijdslot, tarief, is_actief, opmerking)
+    VALUES (p_evenement_id, p_datum, p_tijdslot, p_tarief, 1, p_opmerking);
+
+    SELECT LAST_INSERT_ID() AS tijdslotnummer;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_ticket_toevoegen
+-- Voegt een ticket toe (tabel ticket) voor een tijdslot van een evenement:
+-- de eerste schrijfactie (create) van het project.
+--
+-- Een medewerker vult editie, tijdslot en aantal in; er hoeft geen bezoeker
+-- te zijn, dus bezoeker_id blijft NULL. De procedure controleert zelf of de
+-- editie actief is, of het tijdslot bij die editie hoort en of er nog genoeg
+-- tickets beschikbaar zijn, zodat er nooit meer verkocht wordt dan de
+-- capaciteit. Geeft het nieuwe ticketnummer terug.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_ticket_toevoegen(
+    IN p_evenement_id INT UNSIGNED,
+    IN p_prijs_id     INT UNSIGNED,
+    IN p_aantal       INT UNSIGNED
+)
+BEGIN
+    DECLARE v_event_actief TINYINT DEFAULT NULL;
+    DECLARE v_prijs_actief TINYINT DEFAULT NULL;
+    DECLARE v_datum        DATE    DEFAULT NULL;
+    DECLARE v_capaciteit   INT     DEFAULT 0;
+    DECLARE v_verkocht     INT     DEFAULT 0;
+
+    IF p_aantal IS NULL OR p_aantal < 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een geldig aantal in.';
+    END IF;
+
+    SELECT e.is_actief, e.aantal_tickets_per_tijdslot
+      INTO v_event_actief, v_capaciteit
+    FROM evenement e
+    WHERE e.id = p_evenement_id;
+
+    IF v_event_actief IS NULL OR v_event_actief = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De gekozen editie is niet gevonden of niet actief.';
+    END IF;
+
+    SELECT p.is_actief, p.datum
+      INTO v_prijs_actief, v_datum
+    FROM prijs p
+    WHERE p.id = p_prijs_id
+      AND p.evenement_id = p_evenement_id;
+
+    IF v_prijs_actief IS NULL OR v_prijs_actief = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Het gekozen tijdslot hoort niet bij deze editie of is niet actief.';
+    END IF;
+
+    SELECT COALESCE(SUM(t.aantal_tickets), 0)
+      INTO v_verkocht
+    FROM ticket t
+    WHERE t.prijs_id = p_prijs_id
+      AND t.is_actief = 1;
+
+    IF p_aantal > (v_capaciteit - v_verkocht) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Er zijn niet genoeg tickets beschikbaar voor dit tijdslot.';
+    END IF;
+
+    INSERT INTO ticket (bezoeker_id, evenement_id, prijs_id, aantal_tickets, datum, opmerking)
+    VALUES (NULL, p_evenement_id, p_prijs_id, p_aantal, v_datum, 'Toegevoegd door medewerker');
+
+    SELECT LAST_INSERT_ID() AS ticketnummer;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_plaatsen
+-- Plaats een bestelling van een bezoeker (user story "Als bezoeker wil ik een
+-- ticket voor een evenement kunnen kopen").
+--
+-- De bezoeker vult naam en e-mailadres in; bestaat dat e-mailadres al, dan
+-- wordt de bestaande bezoeker hergebruikt en komt er geen tweede rij. Daarna
+-- wordt het ticket gekoppeld, zodat er wél een bezoeker aan vastzit.
+--
+-- Alles gebeurt in één transactie met de rij van het tijdslot vastgepakt
+-- (FOR UPDATE), zodat er nooit meer verkocht wordt dan de capaciteit en een
+-- mislukte bestelling niets achterlaat. Geeft ticketnummer en bezoeker-id
+-- terug.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_plaatsen(
+    IN p_evenement_id INT UNSIGNED,
+    IN p_prijs_id     INT UNSIGNED,
+    IN p_aantal       INT UNSIGNED,
+    IN p_naam         VARCHAR(100),
+    IN p_emailadres   VARCHAR(150)
+)
+BEGIN
+    DECLARE v_event_actief TINYINT      DEFAULT NULL;
+    DECLARE v_prijs_actief TINYINT      DEFAULT NULL;
+    DECLARE v_datum        DATE         DEFAULT NULL;
+    DECLARE v_capaciteit   INT          DEFAULT 0;
+    DECLARE v_verkocht     INT          DEFAULT 0;
+    DECLARE v_bezoeker     INT UNSIGNED DEFAULT NULL;
+
+    IF p_naam IS NULL OR TRIM(p_naam) = '' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul je naam in.';
+    END IF;
+
+    IF CHAR_LENGTH(p_naam) > 100 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Je naam mag maximaal 100 tekens bevatten.';
+    END IF;
+
+    IF p_emailadres IS NULL OR TRIM(p_emailadres) = '' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul je e-mailadres in.';
+    END IF;
+
+    IF CHAR_LENGTH(p_emailadres) > 150 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Het e-mailadres mag maximaal 150 tekens bevatten.';
+    END IF;
+
+    IF p_aantal IS NULL OR p_aantal < 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een geldig aantal in.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT e.is_actief, e.aantal_tickets_per_tijdslot
+      INTO v_event_actief, v_capaciteit
+    FROM evenement e
+    WHERE e.id = p_evenement_id
+    FOR UPDATE;
+
+    IF v_event_actief IS NULL OR v_event_actief = 0 THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De gekozen editie is niet gevonden of niet actief.';
+    END IF;
+
+    SELECT p.is_actief, p.datum
+      INTO v_prijs_actief, v_datum
+    FROM prijs p
+    WHERE p.id = p_prijs_id
+      AND p.evenement_id = p_evenement_id
+    FOR UPDATE;
+
+    IF v_prijs_actief IS NULL OR v_prijs_actief = 0 THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Het gekozen tijdslot hoort niet bij deze editie of is niet actief.';
+    END IF;
+
+    SELECT COALESCE(SUM(t.aantal_tickets), 0)
+      INTO v_verkocht
+    FROM ticket t
+    WHERE t.prijs_id = p_prijs_id
+      AND t.is_actief = 1;
+
+    IF p_aantal > (v_capaciteit - v_verkocht) THEN
+        ROLLBACK;
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Er zijn niet genoeg tickets beschikbaar voor dit tijdslot.';
+    END IF;
+
+    SELECT id
+      INTO v_bezoeker
+    FROM bezoeker
+    WHERE emailadres = TRIM(p_emailadres)
+      AND is_actief = 1
+    LIMIT 1;
+
+    IF v_bezoeker IS NULL THEN
+        INSERT INTO bezoeker (naam, emailadres)
+        VALUES (TRIM(p_naam), TRIM(p_emailadres));
+
+        SET v_bezoeker = LAST_INSERT_ID();
+    END IF;
+
+    INSERT INTO ticket (bezoeker_id, evenement_id, prijs_id, aantal_tickets, datum, opmerking)
+    VALUES (v_bezoeker, p_evenement_id, p_prijs_id, p_aantal, v_datum, CONCAT('Bestelling van ', TRIM(p_naam)));
+
+    COMMIT;
+
+    SELECT LAST_INSERT_ID() AS ticketnummer, v_bezoeker AS bezoeker_id;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_bevesting
+-- Gegevens van een geplaatste bestelling voor de bevestiging die de bezoeker
+-- op het scherm ziet (de e-mail zelf wordt vastgelegd in de technische log).
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_bevesting(IN p_ticket_id INT UNSIGNED)
+BEGIN
+    SELECT
+        t.id                     AS ticketnummer,
+        b.naam                   AS bezoeker_naam,
+        b.emailadres,
+        e.naam                   AS evenement_naam,
+        p.datum,
+        p.tijdslot,
+        p.tarief,
+        t.aantal_tickets         AS aantal,
+        (p.tarief * t.aantal_tickets) AS totaal
+    FROM ticket t
+    INNER JOIN prijs p
+        ON p.id = t.prijs_id
+    INNER JOIN evenement e
+        ON e.id = t.evenement_id
+    INNER JOIN bezoeker b
+        ON b.id = t.bezoeker_id
+    WHERE t.id = p_ticket_id;
 END$$
 
 -- -----------------------------------------------------------------------------
