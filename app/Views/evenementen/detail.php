@@ -60,7 +60,12 @@ declare(strict_types=1);
                 <h3 class="dag-kop"><?= e(datumNl($dag)) ?></h3>
                 <div class="raster raster--tijdsloten">
                     <?php foreach ($slotsVanDag as $tijdslot) : ?>
-                        <?= partial('tijdslot-kaart', ['tijdslot' => $tijdslot]) ?>
+                        <?= partial('tijdslot-kaart', [
+                            'tijdslot' => $tijdslot,
+                            'bestelUrl' => url('/tickets/bestellen')
+                                . '?event=' . $evenement->id
+                                . '&tijdslot=' . $tijdslot->prijsId,
+                        ]) ?>
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
