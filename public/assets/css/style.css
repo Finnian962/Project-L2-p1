@@ -685,6 +685,22 @@ img {
     font-size: 0.85rem;
 }
 
+/* Knoppen per tijdslot: "Bestellen" voor de bezoeker en "Ticket boeken" voor
+   de medewerker, netjes onder elkaar in de kaart. */
+.tijdslot__acties {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.9rem;
+}
+
+.tijdslot__actie {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    text-align: center;
+}
+
 /* Standkaarten */
 
 .standkaart {
@@ -946,6 +962,103 @@ img {
 
 .zoekbalk input::placeholder {
     color: #6f6f80;
+}
+
+/* Formulier (ticket toevoegen) */
+
+.formulier {
+    display: grid;
+    gap: 1.2rem;
+    max-width: 44rem;
+    margin-top: 1.6rem;
+}
+
+.formulier__veld {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.formulier__label {
+    color: var(--kleur-tekst-zacht);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.formulier__invoer {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--kleur-rand);
+    border-radius: var(--radius);
+    background: var(--kleur-paneel-licht);
+    color: var(--kleur-tekst);
+    font: inherit;
+    font-size: 16px;
+}
+
+.formulier__invoer:focus-visible {
+    outline: 2px solid var(--kleur-accent);
+    outline-offset: 2px;
+}
+
+textarea.formulier__invoer {
+    min-height: 9rem;
+    resize: vertical;
+}
+
+.formulier__acties {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.formulier__hint {
+    color: var(--kleur-tekst-zacht);
+    font-size: 0.85rem;
+}
+
+/* Label-extra van een niet-verplicht veld. */
+.formulier__nietVerplicht {
+    color: var(--kleur-tekst-zacht);
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+/* Samenvatting van de bestelling op het betaalscherm. */
+.bestelling {
+    margin: 0.4rem 0 0;
+    padding: 0;
+    border: 1px solid var(--kleur-rand);
+    border-radius: var(--radius);
+    list-style: none;
+    overflow: hidden;
+}
+
+.bestelling__regel {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.95rem;
+}
+
+.bestelling__regel:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.bestelling__regel span {
+    color: var(--kleur-tekst-zacht);
+}
+
+.bestelling__regel--totaal {
+    border-top: 1px solid var(--kleur-rand);
+    background: transparent;
+}
+
+.bestelling__regel--totaal strong {
+    color: var(--kleur-accent);
+    font-family: 'Archivo Black', sans-serif;
 }
 
 /* Meldingen (terugkoppeling bij unhappy flows) */
