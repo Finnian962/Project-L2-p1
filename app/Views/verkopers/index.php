@@ -14,6 +14,7 @@ declare(strict_types=1);
  * @var list<\App\Entities\Verkoper> $verkopers
  * @var string                       $zoekterm
  * @var string                       $soort
+ * @var string|null                  $succesmelding
  * @var string|null                  $melding
  * @var string|null                  $foutmelding
  */
@@ -83,6 +84,16 @@ $maakLink = static function (string $waarde) use ($zoekterm, $soort): string {
 
 <section class="sectie">
     <div class="container">
+        <?php if ($succesmelding !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'info',
+                'kop'   => 'Verkoper toegevoegd',
+                'tekst' => $succesmelding,
+                'actieUrl'   => url('/verkopers/nieuw'),
+                'actieLabel' => 'Nog een verkoper toevoegen',
+            ]) ?>
+        <?php endif; ?>
+
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort' => 'fout',

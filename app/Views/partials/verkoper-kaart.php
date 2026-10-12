@@ -27,8 +27,10 @@ $toonContactlink = $toonContactlink ?? false;
         <?php if ($verkoper->isPartner) : ?>
             <span class="badge badge--geel">Partner</span>
         <?php endif; ?>
-        <span class="badge">Stand <?= e($verkoper->standType) ?></span>
-        <span class="badge"><?= e($verkoper->dagenOmschrijving()) ?></span>
+        <?php if ($verkoper->aantalStands > 0) : ?>
+            <span class="badge">Stand <?= e($verkoper->standType) ?></span>
+            <span class="badge"><?= e($verkoper->dagenOmschrijving()) ?></span>
+        <?php endif; ?>
 
         <?php if (!empty($verkoper->beschrijving)) : ?>
             <p class="kaart__tekst"><?= e($verkoper->beschrijving) ?></p>

@@ -17,7 +17,7 @@ final class Request
         private readonly string $methode,
         private readonly string $pad,
         private readonly array $queryParameters,
-        private readonly array $postParameters = []
+        private readonly array $postParameters = [],
     ) {
     }
 
@@ -97,7 +97,7 @@ final class Request
     }
 
     /**
-     * Geeft een veld uit het formulier terug (POST), bijvoorbeeld de titel.
+     * Geeft een POST-veld uit een formulier terug, bijvoorbeeld de naam.
      *
      * De waarde wordt alvast opgeschoond (trim), zodat de controller alleen
      * nog hoeft te controleren of er iets ingevuld is.

@@ -67,6 +67,34 @@ final class VerkoperModel extends Model
     }
 
     /**
+     * Slaat een nieuwe verkoper op met één contactpersoon.
+     *
+     * De opslag loopt via sp_verkoper_toevoegen: verkoper en contactpersoon
+     * worden in één transactie weggeschreven. Wanneer dat mislukt gooit de
+     * basisklasse een DatabaseException, zodat de controller de unhappy flow
+     * kan tonen.
+     *
+     * @return int Het automatisch gegenereerde verkopernummer.
+     *
+     * @throws DatabaseException Wanneer het opslaan in de database faalt.
+     */
+    public function voegToe(
+        string $naam,
+        bool $specialeStatus,
+        string $emailadres,
+        string $telefoonnummer
+    ): int {
+        $rij = $this->roepProcedureAanVoorEenRij('sp_verkoper_toevoegen', [
+            $naam,
+            $specialeStatus ? 1 : 0,
+            $emailadres,
+            $telefoonnummer,
+        ]);
+
+        return (int) ($rij['verkoper_id'] ?? 0);
+    }
+
+    /**
      * @param  list<array<string, mixed>> $rijen
      * @return list<Verkoper>
      */

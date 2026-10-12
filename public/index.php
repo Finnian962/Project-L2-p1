@@ -46,6 +46,8 @@ $router->get('/stands', StandController::class, 'index');
 $router->get('/partners', PartnerController::class, 'index');
 $router->get('/side-stands', PartnerController::class, 'sideStands');
 $router->get('/verkopers', VerkoperController::class, 'index');
+$router->get('/verkopers/nieuw', VerkoperController::class, 'nieuw');
+$router->post('/verkopers/nieuw', VerkoperController::class, 'opslaan');
 $router->get('/verkopers/{id}/contact', PartnerController::class, 'contactpersonen');
 $router->get('/info', HomeController::class, 'info');
 

@@ -19,6 +19,13 @@ declare(strict_types=1);
  *                                                      evenement 5 (unhappy flow
  *                                                      ticketpagina)
  *   php database/demo_unhappy.php aan tijdsloten   -> tijdsloten weer zichtbaar
+ *
+ *   php database/demo_unhappy.php uit verkoper     -> opslaan van een verkoper
+ *                                                      geeft een databasefout
+ *                                                      (unhappy flow verkoper
+ *                                                      toevoegen)
+ *   php database/demo_unhappy.php aan verkoper     -> opslaan werkt weer normaal
+ *                                                      (happy flow)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -31,13 +38,13 @@ $wat     = strtolower($argv[2] ?? 'events');
 $evenementId = isset($argv[3]) ? (int) $argv[3] : 0;
 
 if (!in_array($keuze, ['aan', 'uit'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten] [event-id]' . PHP_EOL;
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper] [event-id]' . PHP_EOL;
 
     exit(1);
 }
 
-if (!in_array($wat, ['events', 'tijdsloten'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten] [event-id]' . PHP_EOL;
+if (!in_array($wat, ['events', 'tijdsloten', 'verkoper'], true)) {
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper] [event-id]' . PHP_EOL;
 
     exit(1);
 }
@@ -45,6 +52,29 @@ if (!in_array($wat, ['events', 'tijdsloten'], true)) {
 $isActief = $keuze === 'aan' ? 1 : 0;
 
 try {
+    if ($wat === 'verkoper') {
+        // Unhappy flow verkoper toevoegen: een trigger laat elke INSERT op de
+        // tabel verkoper falen, zodat sp_verkoper_toevoegen wordt teruggedraaid
+        // en de controller de foutmelding toont. Happy flow: trigger weer weg.
+        if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_verkoper');
+        } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_verkoper BEFORE INSERT ON verkoper "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
+        }
+
+        Logger::info('Foutmodus verkoper gewijzigd via demoscript', ['is_actief' => $isActief]);
+
+        echo $isActief === 1
+            ? 'Het opslaan van een verkoper werkt weer normaal (happy flow).' . PHP_EOL
+            : 'Elk opslaan van een verkoper geeft nu een databasefout (unhappy flow).' . PHP_EOL;
+
+        exit(0);
+    }
+
     if ($wat === 'tijdsloten') {
         $statement = Database::verbinding()->prepare('CALL sp_demo_zichtbaarheid_tijdsloten(?, ?)');
         $statement->execute([$evenementId, $isActief]);

@@ -25,6 +25,7 @@ $totaalOmzet = array_sum(array_column($ticketverkoop, 'omzet'))
         </p>
 
         <div class="pagina-kop__acties">
+            <a class="knop" href="<?= e(url('/verkopers/nieuw')) ?>">Verkoper toevoegen</a>
             <a class="knop knop--leeg" href="<?= e(url('/beheer/log')) ?>">Technische log bekijken</a>
         </div>
     </div>

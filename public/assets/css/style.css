@@ -1527,3 +1527,54 @@ textarea.formulier__invoer {
         scroll-behavior: auto !important;
     }
 }
+
+/* Formulieren (verkoper toevoegen) */
+.formulier {
+    display: grid;
+    gap: 1.1rem;
+    max-width: 640px;
+    margin-top: 1.4rem;
+    padding: 1.5rem;
+    border: 1px solid var(--kleur-rand);
+    border-radius: var(--radius);
+    background: var(--kleur-paneel);
+}
+
+.formulier__veld {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.formulier__label {
+    color: var(--kleur-tekst-zacht);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.formulier__invoer {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--kleur-rand);
+    border-radius: 999px;
+    background: var(--kleur-paneel-licht);
+    color: var(--kleur-tekst);
+    font: inherit;
+    font-size: 0.95rem;
+}
+
+.formulier__invoer::placeholder {
+    color: #6f6f80;
+}
+
+.formulier__invoer:focus-visible {
+    outline: 2px solid var(--kleur-accent);
+    outline-offset: 2px;
+}
+
+.formulier__acties {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+}
