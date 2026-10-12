@@ -62,6 +62,7 @@ $router->get('/info', HomeController::class, 'info');
 
 // Beheeromgeving van de organisator (alleen voor beheerders)
 $router->get('/beheer', BeheerController::class, 'index');
+// Event toevoegen: alleen voor ingelogde beheerders (happy + unhappy flows)
 $router->get('/beheer/events/toevoegen', EvenementController::class, 'nieuw');
 $router->post('/beheer/events/toevoegen', EvenementController::class, 'opslaan');
 $router->get('/beheer/stands', BeheerController::class, 'stands');
