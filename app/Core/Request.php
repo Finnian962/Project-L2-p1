@@ -11,11 +11,13 @@ final class Request
 {
     /**
      * @param array<string, string> $queryParameters
+     * @param array<string, string> $postParameters
      */
     private function __construct(
         private readonly string $methode,
         private readonly string $pad,
-        private readonly array $queryParameters
+        private readonly array $queryParameters,
+        private readonly array $postParameters = [],
     ) {
     }
 
@@ -37,7 +39,10 @@ final class Request
         /** @var array<string, string> $query */
         $query = array_map('strval', $_GET);
 
-        return new self($methode, $pad, $query);
+        /** @var array<string, string> $post */
+        $post = array_map('strval', $_POST);
+
+        return new self($methode, $pad, $query, $post);
     }
 
     /**
@@ -72,6 +77,14 @@ final class Request
     public function query(string $sleutel, string $standaard = ''): string
     {
         return trim($this->queryParameters[$sleutel] ?? $standaard);
+    }
+
+    /**
+     * Geeft een POST-veld uit een formulier terug (naam, status, ...).
+     */
+    public function post(string $sleutel, string $standaard = ''): string
+    {
+        return trim($this->postParameters[$sleutel] ?? $standaard);
     }
 
     /**

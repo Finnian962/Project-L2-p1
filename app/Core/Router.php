@@ -34,6 +34,21 @@ final class Router
     }
 
     /**
+     * Registreert een POST-route.
+     *
+     * @param class-string $controller
+     */
+    public function post(string $patroon, string $controller, string $actie): void
+    {
+        $this->routes[] = [
+            'methode'    => 'POST',
+            'patroon'    => $patroon,
+            'controller' => $controller,
+            'actie'      => $actie,
+        ];
+    }
+
+    /**
      * Zoekt de bijpassende route en voert de controlleractie uit.
      * Wanneer geen route past, toont de FoutController een 404-pagina.
      */
