@@ -267,6 +267,36 @@ img {
     color: #0b0b0f;
 }
 
+/* Ingelogde gebruiker: naam en uitlogknop in het menu. */
+.hoofdmenu__account {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
+}
+
+.hoofdmenu__gebruiker {
+    color: var(--kleur-tekst);
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.hoofdmenu__account::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--kleur-groen);
+    flex: 0 0 auto;
+}
+
+.hoofdmenu__uitloggen {
+    margin: 0;
+    display: flex;
+}
+
 /* 4. Hero en paginakoppen ------------------------------------------------ */
 
 .hero {

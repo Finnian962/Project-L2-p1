@@ -10,7 +10,16 @@ declare(strict_types=1);
  * @var string $inhoud De gerenderde view.
  */
 
+use App\Core\Auth;
+use App\Core\Session;
+
 $huidigPad = $pad ?? '/';
+
+/** Wie er ingelogd is (null wanneer niemand ingelogd is). */
+$gebruiker = Auth::gebruiker();
+
+/** Wachtmelding van de vorige actie (na een redirect), maar één keer tonen. */
+$wachtMelding = Session::haalMelding();
 
 /** Menustructuur van de website. */
 $menu = [
@@ -64,12 +73,37 @@ $menu = [
                         ><?= e($label) ?></a>
                     </li>
                 <?php endforeach; ?>
+
+                <?php if ($gebruiker === null) : ?>
+                    <li>
+                        <a
+                            href="<?= e(url('/inloggen')) ?>"
+                            class="hoofdmenu__link<?= isActiefMenu('/inloggen', $huidigPad) ? ' is-actief' : '' ?>"
+                            <?= isActiefMenu('/inloggen', $huidigPad) ? 'aria-current="page"' : '' ?>
+                        >Inloggen</a>
+                    </li>
+                <?php else : ?>
+                    <li class="hoofdmenu__account">
+                        <span class="hoofdmenu__gebruiker">
+                            <span class="visueel-verborgen">Ingelogd als </span><?= e($gebruiker['naam']) ?>
+                        </span>
+                        <form class="hoofdmenu__uitloggen" method="post" action="<?= e(url('/uitloggen')) ?>">
+                            <button class="knop knop--leeg knop--klein" type="submit">Uitloggen</button>
+                        </form>
+                    </li>
+                <?php endif; ?>
             </ul>
         </nav>
     </div>
 </header>
 
 <main id="hoofdinhoud">
+    <?php if ($wachtMelding !== null) : ?>
+        <div class="container">
+            <?= partial('melding', $wachtMelding) ?>
+        </div>
+    <?php endif; ?>
+
     <?= $inhoud ?>
 </main>
 
