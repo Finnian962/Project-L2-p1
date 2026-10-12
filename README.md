@@ -39,7 +39,7 @@ staan, en de standhouder krijgt bovendien het menu-item *Reserveringen*.
 
 | Rol | Gebruikersnaam | Wachtwoord | Toegang tot |
 |---|---|---|---|
-| Beheerder | `noah`, `ilse` | `Sneakerness2026!` | `/beheer`, `/beheer/stands`, `/beheer/stands/toevoegen`, `/beheer/log` |
+| Beheerder | `noah`, `ilse` | `Sneakerness2026!` | `/beheer`, `/beheer/events/toevoegen`, `/beheer/stands`, `/beheer/stands/toevoegen`, `/beheer/log` |
 | Standhouder | `kickz`, `sole`, `crep` | `Sneakerness2026!` | `/stands/beschikbaar`, `/reserveringen` |
 
 - Wie al ingelogd is en `/inloggen` bezoekt, gaat direct naar de homepagina en
