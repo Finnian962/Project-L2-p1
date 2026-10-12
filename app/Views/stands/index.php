@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Core\Auth;
+
 /**
  * Standpagina voor verkopers: standtypes, prijzen en beschikbaarheid.
  *
@@ -13,6 +15,9 @@ declare(strict_types=1);
  * @var string|null                   $melding
  * @var string|null                   $foutmelding
  */
+
+/** Wie er ingelogd is (null wanneer niemand ingelogd is). */
+$gebruiker = Auth::gebruiker();
 ?>
     <div class="container">
         <p class="pagina-kop__label">Voor verkopers</p>
@@ -94,13 +99,34 @@ declare(strict_types=1);
                 <?php endforeach; ?>
             </div>
 
-            <?= partial('melding', [
-                'soort' => 'info',
-                'kop'   => 'Reserveren volgt in Sprint 2',
-                'tekst' => 'Het huurformulier (standtype, één of twee dagen en de contactgegevens '
-                    . 'van je contactpersonen) wordt in de volgende sprint opgeleverd. '
-                    . 'Mail voor nu naar stands@sneakerness.nl.',
-            ]) ?>
+            <?php if (($gebruiker['rol'] ?? '') === 'standhouder') : ?>
+                <?= partial('melding', [
+                    'soort'      => 'info',
+                    'kop'        => 'Reserveren kan direct',
+                    'tekst'      => 'Kies hieronder een standtype met vrije stands en reserveer je '
+                        . 'plek in één klik. Je eigen reserveringen staan bij "Mijn reserveringen".',
+                    'actieUrl'   => url('/stands/beschikbaar'),
+                    'actieLabel' => 'Bekijk beschikbare standen',
+                ]) ?>
+            <?php elseif ($gebruiker !== null) : ?>
+                <?= partial('melding', [
+                    'soort'      => 'waarschuwing',
+                    'kop'        => 'Reserveren is voor standhouders',
+                    'tekst'      => 'Je bent ingelogd als beheerder. Reserveer met een '
+                        . 'standhouderaccount, of beheer de stands zelf via "Stands beheren".',
+                    'actieUrl'   => url('/beheer/stands'),
+                    'actieLabel' => 'Ga naar Stands beheren',
+                ]) ?>
+            <?php else : ?>
+                <?= partial('melding', [
+                    'soort'      => 'info',
+                    'kop'        => 'Reserveren doe je met een account',
+                    'tekst'      => 'Log in met je standhouderaccount om een vrije stand te kiezen '
+                        . 'en te reserveren. Nog geen account? Vraag er één aan bij de organisator.',
+                    'actieUrl'   => url('/inloggen'),
+                    'actieLabel' => 'Inloggen',
+                ]) ?>
+            <?php endif; ?>
         <?php endif; ?>
 
         <?php if ($verkopers !== []) : ?>

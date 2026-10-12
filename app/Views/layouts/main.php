@@ -155,7 +155,7 @@ foreach ($menu as $menuPad => $label) {
         </div>
     </div>
     <div class="container site-footer__onder">
-        <p>© <?= date('Y') ?> Sneakerness® — schoolproject Sprint 1 (read-functionaliteit).</p>
+        <p>© <?= date('Y') ?> Sneakerness® — schoolproject.</p>
     </div>
 </footer>
 
