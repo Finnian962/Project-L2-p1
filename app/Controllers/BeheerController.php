@@ -139,8 +139,18 @@ final class BeheerController extends Controller
         }
 
         $gegevens = $this->haalFormulierGegevens($request->queryAlsGetal('event'));
+        $gegevens['foutKop'] = $gegevens['databaseFout']
+            ? 'Het formulier kon niet worden geladen'
+            : 'Er kan geen stand worden toegevoegd';
 
-        $this->toonToevoegen($gegevens, $gegevens['foutmelding'] === null ? 200 : 503);
+        // Unhappy flow: database niet bereikbaar (503) of nog geen events (422).
+        if ($gegevens['databaseFout']) {
+            $this->toonToevoegen($gegevens, 503);
+
+            return;
+        }
+
+        $this->toonToevoegen($gegevens, $gegevens['foutmelding'] === null ? 200 : 422);
     }
 
     /**
@@ -162,6 +172,15 @@ final class BeheerController extends Controller
 
         $gegevens = $this->haalFormulierGegevens($invoer['evenement_id']);
         $gegevens['invoer'] = $invoer;
+
+        // Unhappy flow: de database is niet bereikbaar, dus de editie kon niet
+        // geladen worden. Toon dát (503) en niet de invoercontrole, want die
+        // zou anders ten onrechte melden dat er geen events zijn.
+        if ($gegevens['databaseFout']) {
+            $this->toonToevoegen($gegevens, 503);
+
+            return;
+        }
 
         // Unhappy flow: het formulier is (onvolledig) verkeerd ingevuld.
         $validatieFout = $this->controleerStandInvoer($invoer, $gegevens['evenementen']);
@@ -254,6 +273,8 @@ final class BeheerController extends Controller
                 'opmerking'    => '',
             ],
             'foutmelding'    => null,
+            // Wordt true wanneer de evenementen niet geladen konden worden.
+            'databaseFout'   => false,
         ];
 
         try {
@@ -274,6 +295,7 @@ final class BeheerController extends Controller
         } catch (DatabaseException $fout) {
             Logger::exception($fout, 'Toevoegformulier kon de evenementen niet laden');
             $gegevens['foutmelding'] = $fout->getMessage();
+            $gegevens['databaseFout'] = true;
         }
 
         return $gegevens;

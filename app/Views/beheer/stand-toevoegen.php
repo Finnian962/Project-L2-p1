@@ -8,6 +8,7 @@ declare(strict_types=1);
  * @var list<\App\Entities\Evenement> $evenementen
  * @var array<string, mixed>          $invoer De vorige invoer (na een mislukte poging).
  * @var string|null                   $foutmelding
+ * @var string|null                   $foutKop Kop boven de foutmelding.
  */
 ?>
 <section class="pagina-kop">
@@ -30,7 +31,7 @@ declare(strict_types=1);
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort' => 'fout',
-                'kop'   => 'De stand is niet opgeslagen',
+                'kop'   => $foutKop ?? 'De stand is niet opgeslagen',
                 'tekst' => $foutmelding,
             ]) ?>
         <?php endif; ?>
