@@ -62,6 +62,8 @@ $router->get('/info', HomeController::class, 'info');
 
 // Beheeromgeving van de organisator (alleen voor beheerders)
 $router->get('/beheer', BeheerController::class, 'index');
+$router->get('/beheer/events/toevoegen', EvenementController::class, 'nieuw');
+$router->post('/beheer/events/toevoegen', EvenementController::class, 'opslaan');
 $router->get('/beheer/stands', BeheerController::class, 'stands');
 $router->get('/beheer/stands/toevoegen', BeheerController::class, 'standToevoegen');
 $router->post('/beheer/stands/toevoegen', BeheerController::class, 'standOpslaan');
