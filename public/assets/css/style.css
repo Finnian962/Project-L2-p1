@@ -1330,6 +1330,25 @@ textarea.formulier__invoer {
         flex-grow: 0;
         width: 100%;
     }
+
+    /* Formulier: strakker tegen de rand en knoppen over de volle breedte. */
+    .formulier {
+        padding: 1rem;
+    }
+
+    .formulier__acties {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .formulier__acties .knop {
+        width: 100%;
+    }
+
+    /* 16px voorkomt dat mobiele browsers inzoomen zodra een veld focus krijgt. */
+    .formulier__invoer {
+        font-size: 16px;
+    }
 }
 
 /* Telefoon en tablet: tabellen stapelen tot kaarten i.p.v. horizontaal scrollen. */
