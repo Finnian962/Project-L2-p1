@@ -1585,3 +1585,10 @@ textarea.formulier__invoer {
     color: var(--kleur-rood);
     font-size: 0.85rem;
 }
+
+/* Vergrendelde knop: het formulier is al onderweg naar de server. */
+.knop:disabled {
+    opacity: 0.6;
+    cursor: progress;
+    transform: none;
+}
