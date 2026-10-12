@@ -55,6 +55,12 @@ Scenarios:
 # database niet bereikbaar            → melding op het formulier (503)
 ```
 
+## Event toevoegen (beheerder)
+
+Route: `/beheer/events/toevoegen` (knop **Event toevoegen** op `/beheer` en
+op `/events` als je als beheerder bent ingelogd), opgeslagen via
+`sp_evenement_toevoegen`.
+
 ## Stand toevoegen (beheerder)
 
 Route: `/beheer/stands/toevoegen` (knop **Stand toevoegen** op
