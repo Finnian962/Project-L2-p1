@@ -65,6 +65,12 @@ op `/events` als je als beheerder bent ingelogd), opgeslagen via
   beschikbare stands invullen → knop **Opslaan** → melding *"Het event is
   succesvol toegevoegd."* → doorverwijzing naar `/events`, waar het nieuwe
   event in de lijst staat (gesorteerd op datum).
+- **Unhappy flow (verplicht)**: één of meer verplichte velden leeg laten →
+  melding *"Vul de gemarkeerde verplichte velden in."* (HTTP 422), niets
+  opgeslagen.
+- **Unhappy flow (ongeldig)**: bijvoorbeeld datum `2026-13-40` of tickets
+  `abc` → melding *"Controleer de gemarkeerde velden. Er is een ongeldige
+  waarde ingevuld."* (HTTP 422), niets opgeslagen.
 
 ## Stand toevoegen (beheerder)
 
