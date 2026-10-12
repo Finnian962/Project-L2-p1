@@ -5,12 +5,13 @@ declare(strict_types=1);
 /**
  * Bootstrap van de applicatie.
  *
- * Verantwoordelijk voor: autoloading, configuratie, technische log en de
- * globale foutafhandeling. Dit bestand wordt door public/index.php geladen.
+ * Verantwoordelijk voor: autoloading, configuratie, technische log, sessie en
+ * de globale foutafhandeling. Dit bestand wordt door public/index.php geladen.
  */
 
 use App\Core\Config;
 use App\Core\Logger;
+use App\Core\Session;
 
 define('BASIS_MAP', dirname(__DIR__));
 
@@ -39,6 +40,10 @@ Logger::init(
     (string) Config::get('log.map', BASIS_MAP . '/storage/logs'),
     (string) Config::get('log.niveau', 'debug')
 );
+
+// De sessie moet starten vóórdat er HTML verstuurd wordt: daarin staat de
+// loginstatus van de gebruiker en de wachtmelding voor de volgende pagina.
+Session::start();
 
 // PHP-waarschuwingen komen niet op het scherm maar in de technische log.
 ini_set('display_errors', '0');
