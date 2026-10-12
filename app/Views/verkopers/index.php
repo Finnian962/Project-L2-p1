@@ -115,7 +115,7 @@ $maakLink = static function (string $waarde) use ($zoekterm, $soort): string {
                 <strong><?= e(count($verkopers)) ?></strong>
                 <?= count($verkopers) === 1 ? 'verkoper gevonden' : 'verkopers gevonden' ?>
                 <?= $soort !== '' ? ' voor "' . e($soort) . '"' : '' ?>
-                · gesorteerd op soort en naam
+                · partners eerst, daarna op naam
             </p>
 
             <div class="raster raster--verkopers">
