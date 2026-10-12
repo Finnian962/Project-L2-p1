@@ -214,6 +214,8 @@ final class VerkoperController extends Controller
             $fouten['emailadres'] = 'Vul een e-mailadres in.';
         } elseif (mb_strlen($waarden['emailadres']) > self::MAX_EMAILADRES) {
             $fouten['emailadres'] = 'Het e-mailadres mag maximaal ' . self::MAX_EMAILADRES . ' tekens bevatten.';
+        } elseif (filter_var($waarden['emailadres'], FILTER_VALIDATE_EMAIL) === false) {
+            $fouten['emailadres'] = 'Vul een geldig e-mailadres in, bijvoorbeeld naam@voorbeeld.nl.';
         }
 
         if ($waarden['telefoonnummer'] === '') {
