@@ -17,7 +17,7 @@ final class Request
         private readonly string $methode,
         private readonly string $pad,
         private readonly array $queryParameters,
-        private readonly array $postParameters = []
+        private readonly array $postParameters = [],
     ) {
     }
 
@@ -39,11 +39,10 @@ final class Request
         /** @var array<string, string> $query */
         $query = array_map('strval', $_GET);
 
+        // Alleen gewone velden: een array-veld (bijv. titel[] of naam[]) negeren
+        // we, zodat validatie in de controller er melding van kan maken.
         /** @var array<string, string> $post */
-        $post = array_map(
-            'strval',
-            array_filter($_POST, static fn (mixed $waarde): bool => is_scalar($waarde))
-        );
+        $post = array_filter($_POST, 'is_string');
 
         return new self($methode, $pad, $query, $post);
     }
@@ -107,8 +106,11 @@ final class Request
     }
 
     /**
-     * Geeft een veld uit het POST-formulier terug, bijvoorbeeld
-     * de gebruikersnaam op de inlogpagina.
+     * Geeft een POST-veld uit een formulier terug, bijvoorbeeld de
+     * gebruikersnaam op de inlogpagina of de naam van een nieuwe verkoper.
+     *
+     * De waarde wordt alvast opgeschoond (trim), zodat de controller alleen
+     * nog hoeft te controleren of er iets ingevuld is.
      */
     public function post(string $sleutel, string $standaard = ''): string
     {

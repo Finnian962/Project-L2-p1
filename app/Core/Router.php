@@ -29,8 +29,8 @@ final class Router
     }
 
     /**
-     * Registreert een POST-route, bijvoorbeeld voor formulieren zoals
-     * inloggen, stand toevoegen en stand reserveren.
+     * Registreert een POST-route, bijvoorbeeld voor een formulier zoals
+     * inloggen, verkoper toevoegen, stand toevoegen of stand reserveren.
      *
      * @param class-string $controller
      */
@@ -40,6 +40,8 @@ final class Router
     }
 
     /**
+     * Legt één route vast.
+     *
      * @param class-string $controller
      */
     private function registreer(string $methode, string $patroon, string $controller, string $actie): void

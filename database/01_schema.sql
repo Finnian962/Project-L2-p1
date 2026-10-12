@@ -98,10 +98,12 @@ CREATE TABLE prijs (
 -- -----------------------------------------------------------------------------
 -- Tabel: ticket
 -- Een boeking van een bezoeker voor een tijdslot van een evenement.
+-- bezoeker_id is NULL wanneer een medewerker het ticket zelf toevoegt
+-- (zie sp_ticket_toevoegen); dan is er geen bezoeker aan te koppelen.
 -- -----------------------------------------------------------------------------
 CREATE TABLE ticket (
     id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    bezoeker_id      INT UNSIGNED NOT NULL,
+    bezoeker_id      INT UNSIGNED     NULL,
     evenement_id     INT UNSIGNED NOT NULL,
     prijs_id         INT UNSIGNED NOT NULL,
     aantal_tickets   INT UNSIGNED NOT NULL DEFAULT 1,

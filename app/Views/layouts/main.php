@@ -23,14 +23,15 @@ $wachtMelding = Session::haalMelding();
 
 /** Menustructuur van de website. */
 $menu = [
-    '/'            => 'Home',
-    '/events'      => 'Events',
-    '/tickets'     => 'Tickets',
-    '/stands'      => 'Stand huren',
-    '/partners'    => 'Partners',
-    '/side-stands' => 'Side-stands',
-    '/verkopers'   => 'Verkopers',
-    '/info'        => 'Info',
+    '/'                   => 'Home',
+    '/events'             => 'Events',
+    '/tickets'            => 'Tickets',
+    '/tickets/toevoegen'  => 'Ticket toevoegen',
+    '/stands'             => 'Stand huren',
+    '/partners'           => 'Partners',
+    '/side-stands'        => 'Side-stands',
+    '/verkopers'          => 'Verkopers',
+    '/info'               => 'Info',
 ];
 
 // Standhouders krijgen een extra menu-item voor hun eigen reserveringen.
@@ -39,6 +40,18 @@ if (($gebruiker['rol'] ?? '') === 'standhouder') {
 }
 
 $menu['/beheer'] = 'Beheer';
+
+// Alleen het meest specifieke menu-item wordt gemarkeerd, zodat
+// '/tickets/toevoegen' niet tegelijk 'Tickets' activeert.
+$actiefPad = null;
+
+foreach ($menu as $menuPad => $label) {
+    if (isActiefMenu($menuPad, $huidigPad)
+        && ($actiefPad === null || strlen($menuPad) > strlen($actiefPad))
+    ) {
+        $actiefPad = $menuPad;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="nl">
@@ -71,11 +84,12 @@ $menu['/beheer'] = 'Beheer';
         <nav id="hoofdmenu" class="hoofdmenu" aria-label="Hoofdmenu">
             <ul class="hoofdmenu__lijst">
                 <?php foreach ($menu as $menuPad => $label) : ?>
+                    <?php $isActief = $menuPad === $actiefPad; ?>
                     <li>
                         <a
                             href="<?= e(url($menuPad)) ?>"
-                            class="hoofdmenu__link<?= isActiefMenu($menuPad, $huidigPad) ? ' is-actief' : '' ?>"
-                            <?= isActiefMenu($menuPad, $huidigPad) ? 'aria-current="page"' : '' ?>
+                            class="hoofdmenu__link<?= $isActief ? ' is-actief' : '' ?>"
+                            <?= $isActief ? 'aria-current="page"' : '' ?>
                         ><?= e($label) ?></a>
                     </li>
                 <?php endforeach; ?>

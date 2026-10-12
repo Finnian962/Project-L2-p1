@@ -8,6 +8,12 @@ declare(strict_types=1);
  * @var list<\App\Entities\Evenement>               $evenementen
  * @var \App\Entities\Evenement|null                $evenement
  * @var array<string, list<\App\Entities\Tijdslot>> $tijdsloten
+ * @var string|null                                 $succesmelding Na het
+ *      toevoegen/boeken of na een geslaagde bestelling.
+ * @var string|null                                 $bestelfout Melding wanneer
+ *      de betaling is mislukt (er is niets geplaatst).
+ * @var array<string, mixed>|null                   $besteldTicket Bevestiging
+ *      van de zojuist geplaatste bestelling.
  * @var string|null                                 $melding
  * @var string|null                                 $foutmelding
  */
@@ -41,6 +47,36 @@ declare(strict_types=1);
 
 <section class="sectie">
     <div class="container">
+        <?php if ($succesmelding !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'info',
+                'tekst' => $succesmelding,
+            ]) ?>
+        <?php endif; ?>
+
+        <?php if ($besteldTicket !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'info',
+                'kop'   => 'Bevestiging verstuurd naar ' . $besteldTicket['emailadres'],
+                'tekst' => 'Ticket #' . $besteldTicket['ticketnummer']
+                    . ' · ' . $besteldTicket['evenement_naam']
+                    . ' · ' . datumNl($besteldTicket['datum'])
+                    . ' — ' . tijdKort($besteldTicket['tijdslot'])
+                    . ' · ' . euro($besteldTicket['tarief'])
+                    . ' · ' . $besteldTicket['aantal']
+                    . ((int) $besteldTicket['aantal'] === 1 ? ' ticket' : ' tickets')
+                    . ' · Totaal ' . euro($besteldTicket['totaal']),
+            ]) ?>
+        <?php endif; ?>
+
+        <?php if ($bestelfout !== null) : ?>
+            <?= partial('melding', [
+                'soort' => 'waarschuwing',
+                'kop'   => 'Betaling niet gelukt',
+                'tekst' => $bestelfout,
+            ]) ?>
+        <?php endif; ?>
+
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort' => 'fout',
@@ -72,17 +108,26 @@ declare(strict_types=1);
                 <h3 class="dag-kop"><?= e(datumNl($dag)) ?></h3>
                 <div class="raster raster--tijdsloten">
                     <?php foreach ($slotsVanDag as $tijdslot) : ?>
-                        <?= partial('tijdslot-kaart', ['tijdslot' => $tijdslot]) ?>
+                        <?= partial('tijdslot-kaart', [
+                            'tijdslot' => $tijdslot,
+                            'bestelUrl' => url('/tickets/bestellen')
+                                . '?event=' . $evenement->id
+                                . '&tijdslot=' . $tijdslot->prijsId,
+                            'boekUrl'  => url('/tickets/boeken')
+                                . '?event=' . $evenement->id
+                                . '&tijdslot=' . $tijdslot->prijsId,
+                        ]) ?>
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
 
             <?= partial('melding', [
                 'soort' => 'info',
-                'kop'   => 'Online bestellen volgt in Sprint 2',
-                'tekst' => 'In deze sprint is de leesfunctionaliteit opgeleverd: je ziet per tijdslot '
-                    . 'het tarief en de actuele beschikbaarheid. Het bestelformulier met naam, '
-                    . 'e-mailadres en aantal tickets komt in de volgende sprint.',
+                'kop'   => 'Bestellen of boeken',
+                'tekst' => 'Bezoekers bestellen tickets via de knop "Bestellen" bij een tijdslot '
+                    . '(naam, e-mailadres en aantal, daarna afrekenen). Een medewerker boekt een '
+                    . 'ticket via "Ticket boeken" en voegt nieuwe tijdsloten toe via '
+                    . '"Ticket toevoegen" in het menu.',
             ]) ?>
         <?php endif; ?>
     </div>

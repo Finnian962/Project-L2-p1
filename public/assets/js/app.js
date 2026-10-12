@@ -48,4 +48,25 @@
             }
         });
     });
+
+    /**
+     * Vergrendelt de verzendknoppen zodra een formulier verzonden wordt, zodat
+     * een dubbele klik niet twee keer hetzelfde opslaat (bijvoorbeeld twee
+     * identieke verkopers).
+     *
+     * De vergrendeling gebeurt in een timeout ná de submit zelf: zo gaat de
+     * knop nog wél met naam en waarde het formulier in, maar kan er tijdens het
+     * wachten op de server niet nog een keer geklikt worden.
+     */
+    document.addEventListener('submit', function (gebeurtenis) {
+        var formulier = gebeurtenis.target;
+        var knoppen = formulier.querySelectorAll('button[type="submit"]');
+
+        window.setTimeout(function () {
+            Array.prototype.forEach.call(knoppen, function (knop) {
+                knop.disabled = true;
+                knop.setAttribute('aria-busy', 'true');
+            });
+        }, 0);
+    });
 })();
