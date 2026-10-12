@@ -11,7 +11,8 @@ use App\Entities\Evenement;
  * Leest evenementen uit de database (de M van MVC).
  *
  * Alle queries staan als stored procedure in de database; dit model roept
- * ze aan en vertaalt de rijen naar Evenement-objecten.
+ * ze aan en vertaalt de rijen naar Evenement-objecten. Schrijven gaat via
+ * sp_evenement_toevoegen; er gaat geen losse INSERT vanuit PHP naar MySQL.
  */
 final class EvenementModel extends Model
 {
@@ -55,5 +56,30 @@ final class EvenementModel extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Slaat een nieuw event op via sp_evenement_toevoegen.
+     *
+     * @return int Het id van het aangemaakte event.
+     */
+    public function voegToe(
+        string $naam,
+        string $datum,
+        string $locatie,
+        int $ticketsPerTijdslot,
+        int $beschikbareStands,
+        ?string $opmerking = null
+    ): int {
+        $rij = $this->roepProcedureAanVoorEenRij('sp_evenement_toevoegen', [
+            $naam,
+            $datum,
+            $locatie,
+            $ticketsPerTijdslot,
+            $beschikbareStands,
+            $opmerking,
+        ]);
+
+        return (int) ($rij['evenement_id'] ?? 0);
     }
 }

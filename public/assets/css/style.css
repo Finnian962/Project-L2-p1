@@ -1691,6 +1691,22 @@ textarea.formulier__invoer {
     margin-top: 0.4rem;
 }
 
+/* Twee velden naast elkaar op desktop, onder elkaar op mobile. */
+.formulier__rij {
+    display: grid;
+    gap: 1.1rem;
+}
+
+.formulier__rij--twee {
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+    .formulier__rij--twee {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 /* Melding onder een veld met een validatiefout. */
 .formulier__fout {
     margin: 0;

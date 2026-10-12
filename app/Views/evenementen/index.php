@@ -12,9 +12,14 @@ declare(strict_types=1);
  * @var list<\App\Entities\Evenement>            $evenementen
  * @var array<int, list<\App\Entities\Tijdslot>> $tijdslotenPerEvent
  * @var string                                   $zoekterm
+ * @var string|null                              $succesmelding
  * @var string|null                              $melding
  * @var string|null                              $foutmelding
  */
+
+use App\Core\Auth;
+
+$succesmelding = $succesmelding ?? null;
 ?>
 <section class="pagina-kop">
     <div class="container">
@@ -24,6 +29,12 @@ declare(strict_types=1);
             Elk jaar strijkt Sneakerness neer in meerdere Europese steden. Hieronder staan alle
             geplande edities, gesorteerd op datum van vroeg naar laat.
         </p>
+
+        <?php if (Auth::heeftRol('beheerder')) : ?>
+            <div class="pagina-kop__acties">
+                <a class="knop" href="<?= e(url('/beheer/events/toevoegen')) ?>">Event toevoegen</a>
+            </div>
+        <?php endif; ?>
 
         <form class="zoekbalk" method="get" action="<?= e(url('/events')) ?>" role="search">
             <label class="visueel-verborgen" for="zoek">Zoek op naam of stad</label>
@@ -44,6 +55,16 @@ declare(strict_types=1);
 
 <section class="sectie">
     <div class="container">
+        <?php if ($succesmelding !== null) : ?>
+            <?= partial('melding', [
+                'soort'      => 'info',
+                'kop'        => 'Event toegevoegd',
+                'tekst'      => $succesmelding,
+                'actieUrl'   => url('/beheer/events/toevoegen'),
+                'actieLabel' => 'Nog een event toevoegen',
+            ]) ?>
+        <?php endif; ?>
+
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort'      => 'fout',

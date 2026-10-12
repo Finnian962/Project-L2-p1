@@ -39,7 +39,7 @@ staan, en de standhouder krijgt bovendien het menu-item *Reserveringen*.
 
 | Rol | Gebruikersnaam | Wachtwoord | Toegang tot |
 |---|---|---|---|
-| Beheerder | `noah`, `ilse` | `Sneakerness2026!` | `/beheer`, `/beheer/stands`, `/beheer/stands/toevoegen`, `/beheer/log` |
+| Beheerder | `noah`, `ilse` | `Sneakerness2026!` | `/beheer`, `/beheer/events/toevoegen`, `/beheer/stands`, `/beheer/stands/toevoegen`, `/beheer/log` |
 | Standhouder | `kickz`, `sole`, `crep` | `Sneakerness2026!` | `/stands/beschikbaar`, `/reserveringen` |
 
 - Wie al ingelogd is en `/inloggen` bezoekt, gaat direct naar de homepagina en
@@ -53,6 +53,32 @@ Scenarios:
 ```bash
 # verkeerde gebruikersnaam/wachtwoord → melding op het formulier (401)
 # database niet bereikbaar            → melding op het formulier (503)
+```
+
+## Event toevoegen (beheerder)
+
+Route: `/beheer/events/toevoegen` (knop **Event toevoegen** op `/beheer` en
+op `/events` als je als beheerder bent ingelogd), opgeslagen via
+`sp_evenement_toevoegen`.
+
+- **Happy flow**: naam, datum (`jjjj-mm-dd`), locatie, tickets per tijdslot en
+  beschikbare stands invullen → knop **Opslaan** → melding *"Het event is
+  succesvol toegevoegd."* → doorverwijzing naar `/events`, waar het nieuwe
+  event in de lijst staat (gesorteerd op datum).
+- **Unhappy flow (verplicht)**: één of meer verplichte velden leeg laten →
+  melding *"Vul de gemarkeerde verplichte velden in."* (HTTP 422), niets
+  opgeslagen.
+- **Unhappy flow (ongeldig)**: bijvoorbeeld datum `2026-13-40` of tickets
+  `abc` → melding *"Controleer de gemarkeerde velden. Er is een ongeldige
+  waarde ingevuld."* (HTTP 422), niets opgeslagen.
+- **Unhappy flow (database plat)**: de database is niet bereikbaar of faalt
+  bij opslaan → melding *"Onze excuses, er is een error. We zijn ermee
+  bezig."* (HTTP 503), ingevulde gegevens blijven staan, niets opgeslagen.
+
+```bash
+php database/test-event-toevoegen.php
+php database/demo_unhappy.php uit event    # opslaan faalt nu (503)
+php database/demo_unhappy.php aan event    # weer normaal
 ```
 
 ## Stand toevoegen (beheerder)
