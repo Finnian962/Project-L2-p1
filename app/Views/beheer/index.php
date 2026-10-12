@@ -20,11 +20,12 @@ $totaalOmzet = array_sum(array_column($ticketverkoop, 'omzet'))
         <p class="pagina-kop__label">Organisator</p>
         <h1 class="pagina-kop__titel">Beheer en rapportage</h1>
         <p class="pagina-kop__tekst">
-            Realtime inzicht in de ticketverkoop en de standverhuur per editie. Het overzicht van
-            alle stands en het toevoegen van een nieuwe stand staan onder "Stands beheren".
+            Realtime inzicht in de ticketverkoop en de standverhuur per editie. Nieuwe events
+            voeg je toe via "Event toevoegen"; stands beheer je onder "Stands beheren".
         </p>
 
         <div class="pagina-kop__acties">
+            <a class="knop" href="<?= e(url('/beheer/events/toevoegen')) ?>">Event toevoegen</a>
             <a class="knop" href="<?= e(url('/beheer/stands')) ?>">Stands beheren</a>
             <a class="knop" href="<?= e(url('/verkopers/nieuw')) ?>">Verkoper toevoegen</a>
             <a class="knop knop--leeg" href="<?= e(url('/beheer/log')) ?>">Technische log bekijken</a>
