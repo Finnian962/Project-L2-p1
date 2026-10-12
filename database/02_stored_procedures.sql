@@ -215,10 +215,10 @@ BEGIN
         COUNT(DISTINCT s.id)                    AS aantal_stands,
         COUNT(DISTINCT cpv.contactpersoon_id)   AS aantal_contactpersonen
     FROM verkoper v
-    INNER JOIN stand s
+    LEFT JOIN stand s
         ON s.verkoper_id = v.id
        AND s.is_actief = 1
-    INNER JOIN evenement e
+    LEFT JOIN evenement e
         ON e.id = s.evenement_id
        AND e.is_actief = 1
     LEFT JOIN contact_per_verkoper cpv
@@ -414,6 +414,57 @@ BEGIN
     END IF;
 
     SELECT ROW_COUNT() AS aantal_gewijzigd;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_verkoper_toevoegen
+-- Slaat een nieuwe verkoper op met bijbehorend contactpersoon (Sprint 2: create).
+--
+-- Verkoper en contactpersoon worden in één transactie weggeschreven, zodat er
+-- nooit een verkoper zonder bereikbaar contactpersoon ontstaat. Wanneer een
+-- insert mislukt wordt alles teruggedraaid (ROLLBACK) en komt de fout via
+-- RESIGNAL bij de applicatie terecht; die toont dan de unhappy melding.
+--
+-- Retourneert het automatisch gegenereerde verkopernummer (id).
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS sp_verkoper_toevoegen;
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_verkoper_toevoegen(
+    IN p_naam            VARCHAR(120),
+    IN p_speciale_status TINYINT,
+    IN p_emailadres      VARCHAR(150),
+    IN p_telefoonnummer  VARCHAR(25)
+)
+BEGIN
+    DECLARE v_verkoper_id       INT UNSIGNED;
+    DECLARE v_contactpersoon_id INT UNSIGNED;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    INSERT INTO verkoper (naam, speciale_status, verkoopt_soort, stand_type, dagen)
+    VALUES (p_naam, p_speciale_status, 'Sneakers', 'A', 1);
+
+    SET v_verkoper_id = LAST_INSERT_ID();
+
+    INSERT INTO contactpersoon (naam, telefoonnummer, emailadres)
+    VALUES (p_naam, p_telefoonnummer, p_emailadres);
+
+    SET v_contactpersoon_id = LAST_INSERT_ID();
+
+    INSERT INTO contact_per_verkoper (verkoper_id, contactpersoon_id, is_actief)
+    VALUES (v_verkoper_id, v_contactpersoon_id, 1);
+
+    COMMIT;
+
+    SELECT v_verkoper_id AS verkoper_id;
 END$$
 
 DELIMITER ;
