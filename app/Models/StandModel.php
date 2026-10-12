@@ -50,4 +50,24 @@ final class StandModel extends Model
     {
         return $this->roepProcedureAan('sp_stand_overzicht', [$evenementId]);
     }
+
+    /**
+     * Voegt een nieuwe, vrije stand toe aan een evenement.
+     *
+     * @return int Het id van de aangemaakte stand.
+     *
+     * @throws DatabaseException Wanneer het evenement niet bestaat of het
+     *                           standtype niet is toegestaan.
+     */
+    public function voegToe(int $evenementId, string $standType, float $prijs, ?string $opmerking = null): int
+    {
+        $rij = $this->roepProcedureAanVoorEenRij('sp_stand_toevoegen', [
+            $evenementId,
+            $standType,
+            $prijs,
+            $opmerking,
+        ]);
+
+        return (int) ($rij['stand_id'] ?? 0);
+    }
 }

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\DatabaseException;
 use App\Core\Logger;
 use App\Core\Request;
+use App\Core\Session;
 use App\Models\EvenementModel;
 use App\Models\RapportModel;
 use App\Models\StandModel;
@@ -127,6 +129,92 @@ final class BeheerController extends Controller
     }
 
     /**
+     * GET /beheer/stands/toevoegen
+     * Formulier waarin de beheerder een nieuwe stand aanmaakt.
+     */
+    public function standToevoegen(Request $request): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        $gegevens = $this->haalFormulierGegevens($request->queryAlsGetal('event'));
+
+        $this->toonToevoegen($gegevens, $gegevens['foutmelding'] === null ? 200 : 503);
+    }
+
+    /**
+     * POST /beheer/stands/toevoegen
+     * Slaat de nieuwe stand op en stuurt door naar het standenoverzicht.
+     */
+    public function standOpslaan(Request $request): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        $invoer = [
+            'evenement_id' => $request->postAlsGetal('evenement_id'),
+            'stand_type'   => $request->post('stand_type'),
+            'prijs'        => $request->post('prijs'),
+            'opmerking'    => $request->post('opmerking'),
+        ];
+
+        $gegevens = $this->haalFormulierGegevens($invoer['evenement_id']);
+        $gegevens['invoer'] = $invoer;
+
+        // Unhappy flow: het formulier is (onvolledig) verkeerd ingevuld.
+        $validatieFout = $this->controleerStandInvoer($invoer, $gegevens['evenementen']);
+
+        if ($validatieFout !== null) {
+            Logger::warning('Stand toevoegen: ongeldige invoer', ['reden' => $validatieFout]);
+
+            $gegevens['foutmelding'] = $validatieFout;
+            $this->toonToevoegen($gegevens, 422);
+
+            return;
+        }
+
+        $evenement = null;
+        foreach ($gegevens['evenementen'] as $optie) {
+            if ($optie->id === $invoer['evenement_id']) {
+                $evenement = $optie;
+            }
+        }
+
+        $prijs = (float) str_replace(',', '.', $invoer['prijs']);
+
+        try {
+            $standId = (new StandModel())->voegToe(
+                $invoer['evenement_id'],
+                strtoupper($invoer['stand_type']),
+                $prijs,
+                $invoer['opmerking'] === '' ? null : $invoer['opmerking']
+            );
+        } catch (DatabaseException $fout) {
+            // Unhappy flow: het evenement bestaat niet of de database ligt plat.
+            Logger::exception($fout, 'Stand kon niet worden toegevoegd');
+
+            $gegevens['foutmelding'] = $fout->getMessage();
+            $this->toonToevoegen($gegevens, 503);
+
+            return;
+        }
+
+        Logger::info('Stand toegevoegd', [
+            'stand_id'     => $standId,
+            'evenement'    => $evenement?->naam,
+            'stand_type'   => $invoer['stand_type'],
+            'prijs'        => $prijs,
+            'toegevoegdDoor' => Auth::gebruikersnaam(),
+        ]);
+
+        Session::melding('De stand is succesvol toegevoegd.', 'info', 'Stand toegevoegd');
+
+        $this->redirect('/beheer/stands?event=' . $invoer['evenement_id']);
+    }
+
+    /**
      * GET /beheer/log
      * Toont de laatste regels uit de technische log.
      */
@@ -144,5 +232,102 @@ final class BeheerController extends Controller
             'regels'  => $regels,
             'melding' => $regels === [] ? 'Er zijn vandaag nog geen logregels geschreven.' : null,
         ]);
+    }
+
+    /**
+     * De gegevens die het toevoegformulier nodig heeft: de evenementen om
+     * uit te kiezen, de vorige invoer en een eventuele foutmelding.
+     *
+     * @return array<string, mixed>
+     */
+    private function haalFormulierGegevens(int $gekozenEvenementId): array
+    {
+        $gegevens = [
+            'titel'          => 'Stand toevoegen',
+            'pad'            => '/beheer',
+            'evenementen'    => [],
+            'evenementId'    => $gekozenEvenementId,
+            'invoer'         => [
+                'evenement_id' => $gekozenEvenementId,
+                'stand_type'   => 'A',
+                'prijs'        => '',
+                'opmerking'    => '',
+            ],
+            'foutmelding'    => null,
+        ];
+
+        try {
+            $evenementen = (new EvenementModel())->haalOverzicht();
+            $gegevens['evenementen'] = $evenementen;
+
+            // Zonder events kan er geen stand aangemaakt worden.
+            if ($evenementen === []) {
+                $gegevens['foutmelding'] = 'Er zijn nog geen events aangemaakt. '
+                    . 'Maak eerst een evenement aan voordat je een stand toevoegt.';
+
+                return $gegevens;
+            }
+
+            $evenement = $this->kiesEvenement($evenementen, $gekozenEvenementId);
+            $gegevens['evenementId'] = $evenement?->id ?? 0;
+            $gegevens['invoer']['evenement_id'] = $evenement?->id ?? 0;
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Toevoegformulier kon de evenementen niet laden');
+            $gegevens['foutmelding'] = $fout->getMessage();
+        }
+
+        return $gegevens;
+    }
+
+    /**
+     * Controleert de ingevulde stand voordat hij opgeslagen wordt.
+     *
+     * @param array<string, mixed>              $invoer
+     * @param list<\App\Entities\Evenement>     $evenementen
+     *
+     * @return string|null De foutmelding, of null wanneer de invoer klopt.
+     */
+    private function controleerStandInvoer(array $invoer, array $evenementen): ?string
+    {
+        if ($evenementen === []) {
+            return 'Er zijn nog geen events aangemaakt. Maak eerst een evenement aan.';
+        }
+
+        $bestaandEvenement = false;
+        foreach ($evenementen as $optie) {
+            if ($optie->id === (int) $invoer['evenement_id']) {
+                $bestaandEvenement = true;
+            }
+        }
+
+        if (!$bestaandEvenement) {
+            return 'Kies een geldige editie voor de stand.';
+        }
+
+        if (!in_array(strtoupper((string) $invoer['stand_type']), ['A', 'AA', 'AA+'], true)) {
+            return 'Kies een geldig standtype: A, AA of AA+.';
+        }
+
+        $prijs = str_replace(',', '.', (string) $invoer['prijs']);
+
+        if ($prijs === '' || !is_numeric($prijs) || (float) $prijs <= 0) {
+            return 'Vul een geldige prijs in, bijvoorbeeld 495,00.';
+        }
+
+        if (mb_strlen((string) $invoer['opmerking']) > 255) {
+            return 'De opmerking mag maximaal 255 tekens bevatten.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Toont het toevoegformulier met de eventuele foutmelding.
+     *
+     * @param array<string, mixed> $gegevens
+     */
+    private function toonToevoegen(array $gegevens, int $httpStatus): void
+    {
+        $this->toon('beheer/stand-toevoegen', $gegevens, $httpStatus);
     }
 }

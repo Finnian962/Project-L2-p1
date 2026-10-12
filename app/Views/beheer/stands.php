@@ -23,6 +23,7 @@ declare(strict_types=1);
         </p>
 
         <div class="pagina-kop__acties">
+            <a class="knop" href="<?= e(url('/beheer/stands/toevoegen')) ?>">Stand toevoegen</a>
             <a class="knop knop--leeg" href="<?= e(url('/beheer')) ?>">Terug naar beheer</a>
         </div>
     </div>

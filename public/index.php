@@ -51,6 +51,8 @@ $router->get('/info', HomeController::class, 'info');
 // Beheeromgeving van de organisator (alleen voor beheerders)
 $router->get('/beheer', BeheerController::class, 'index');
 $router->get('/beheer/stands', BeheerController::class, 'stands');
+$router->get('/beheer/stands/toevoegen', BeheerController::class, 'standToevoegen');
+$router->post('/beheer/stands/toevoegen', BeheerController::class, 'standOpslaan');
 $router->get('/beheer/log', BeheerController::class, 'log');
 
 try {
