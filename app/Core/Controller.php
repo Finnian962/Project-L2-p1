@@ -23,4 +23,17 @@ abstract class Controller
 
         echo View::render($view, $gegevens);
     }
+
+    /**
+     * Stuurt de browser door naar een andere pagina (post/redirect/get).
+     *
+     * Na de doorverwijzing stopt het verzoek: er wordt niets meer verstuurd.
+     */
+    protected function redirect(string $pad, int $httpStatus = 302): void
+    {
+        http_response_code($httpStatus);
+        header('Location: ' . url($pad));
+
+        exit;
+    }
 }

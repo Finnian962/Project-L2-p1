@@ -11,11 +11,13 @@ final class Request
 {
     /**
      * @param array<string, string> $queryParameters
+     * @param array<string, string> $postParameters
      */
     private function __construct(
         private readonly string $methode,
         private readonly string $pad,
-        private readonly array $queryParameters
+        private readonly array $queryParameters,
+        private readonly array $postParameters = []
     ) {
     }
 
@@ -37,7 +39,13 @@ final class Request
         /** @var array<string, string> $query */
         $query = array_map('strval', $_GET);
 
-        return new self($methode, $pad, $query);
+        /** @var array<string, string> $post */
+        $post = array_map(
+            'strval',
+            array_filter($_POST, static fn (mixed $waarde): bool => is_scalar($waarde))
+        );
+
+        return new self($methode, $pad, $query, $post);
     }
 
     /**
@@ -87,5 +95,30 @@ final class Request
     public function heeftQuery(string $sleutel): bool
     {
         return array_key_exists($sleutel, $this->queryParameters);
+    }
+
+    /**
+     * Geeft een veld uit het POST-formulier terug, bijvoorbeeld
+     * de gebruikersnaam op de inlogpagina.
+     */
+    public function post(string $sleutel, string $standaard = ''): string
+    {
+        return trim($this->postParameters[$sleutel] ?? $standaard);
+    }
+
+    /**
+     * Geeft een POST-veld als positief geheel getal terug (bijvoorbeeld
+     * het id van de stand die gereserveerd moet worden).
+     */
+    public function postAlsGetal(string $sleutel, int $standaard = 0): int
+    {
+        $waarde = $this->post($sleutel);
+
+        return ctype_digit($waarde) ? (int) $waarde : $standaard;
+    }
+
+    public function heeftPost(string $sleutel): bool
+    {
+        return array_key_exists($sleutel, $this->postParameters);
     }
 }
