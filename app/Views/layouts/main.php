@@ -31,8 +31,14 @@ $menu = [
     '/side-stands' => 'Side-stands',
     '/verkopers'   => 'Verkopers',
     '/info'        => 'Info',
-    '/beheer'      => 'Beheer',
 ];
+
+// Standhouders krijgen een extra menu-item voor hun eigen reserveringen.
+if (($gebruiker['rol'] ?? '') === 'standhouder') {
+    $menu['/reserveringen'] = 'Reserveringen';
+}
+
+$menu['/beheer'] = 'Beheer';
 ?>
 <!DOCTYPE html>
 <html lang="nl">

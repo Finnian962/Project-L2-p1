@@ -70,4 +70,48 @@ final class StandModel extends Model
 
         return (int) ($rij['stand_id'] ?? 0);
     }
+
+    /**
+     * De stands die nog vrij zijn voor een evenement (0 = alle evenementen).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function haalBeschikbaar(int $evenementId = 0): array
+    {
+        return $this->roepProcedureAan('sp_stand_beschikbaar', [$evenementId]);
+    }
+
+    /**
+     * Reserveert een stand voor een standhouder.
+     *
+     * De procedure controleert zelf of de stand nog vrij is: twee
+     * reserveringen van dezelfde stand kunnen daardoor niet botsen.
+     *
+     * @return array{aantal_gewijzigd: int, status: string}
+     *
+     * @throws DatabaseException Wanneer de stand of verkoper niet bestaat.
+     */
+    public function reserveer(int $standId, int $verkoperId): array
+    {
+        $rij = $this->roepProcedureAanVoorEenRij('sp_stand_reserveren', [$standId, $verkoperId]) ?? [];
+
+        return [
+            'aantal_gewijzigd' => (int) ($rij['aantal_gewijzigd'] ?? 0),
+            'status'           => (string) ($rij['status'] ?? ''),
+        ];
+    }
+
+    /**
+     * Alle gereserveerde stands van één verkoper (de standhouder).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function haalReserveringen(int $verkoperId): array
+    {
+        if ($verkoperId <= 0) {
+            return [];
+        }
+
+        return $this->roepProcedureAan('sp_reservering_overzicht', [$verkoperId]);
+    }
 }
