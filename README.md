@@ -71,6 +71,15 @@ op `/events` als je als beheerder bent ingelogd), opgeslagen via
 - **Unhappy flow (ongeldig)**: bijvoorbeeld datum `2026-13-40` of tickets
   `abc` → melding *"Controleer de gemarkeerde velden. Er is een ongeldige
   waarde ingevuld."* (HTTP 422), niets opgeslagen.
+- **Unhappy flow (database plat)**: de database is niet bereikbaar of faalt
+  bij opslaan → melding *"Onze excuses, er is een error. We zijn ermee
+  bezig."* (HTTP 503), ingevulde gegevens blijven staan, niets opgeslagen.
+
+```bash
+php database/test-event-toevoegen.php
+php database/demo_unhappy.php uit event    # opslaan faalt nu (503)
+php database/demo_unhappy.php aan event    # weer normaal
+```
 
 ## Stand toevoegen (beheerder)
 
