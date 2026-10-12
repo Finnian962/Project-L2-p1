@@ -7,14 +7,18 @@ declare(strict_types=1);
  *
  * Happy flow  : het formulier wordt gevuld en verzonden; na succesvol opslaan
  *               volgt een doorverwijzing naar het verkopersoverzicht.
- * Unhappy flow: de database faalt bij het opslaan. De foutmelding verschijnt
- *               boven het formulier en de ingevulde gegevens blijven behouden.
+ * Unhappy flow: ongeldige invoer (422) of een databasefout (500). De melding
+ *               verschijnt boven het formulier, de ingevulde gegevens blijven
+ *               behouden en velden met een fout krijgen een eigen melding.
  *
- * @var string               $titel
- * @var string               $pad
+ * @var string                $titel
+ * @var string                $pad
  * @var array<string, string> $waarden
- * @var string|null          $foutmelding
+ * @var string|null           $foutmelding
+ * @var array<string, string> $fouten
  */
+
+$fouten = $fouten ?? [];
 
 /** Statusopties voor de verkoper: gewone verkoper of partner. */
 $statussen = [
@@ -60,7 +64,11 @@ $statussen = [
                     maxlength="120"
                     required
                     placeholder="Bijvoorbeeld: Kickz Kollektiv"
+                    <?= isset($fouten['naam']) ? 'aria-invalid="true" aria-describedby="naam-fout"' : '' ?>
                 >
+                <?php if (isset($fouten['naam'])) : ?>
+                    <p class="formulier__fout" id="naam-fout" role="alert"><?= e($fouten['naam']) ?></p>
+                <?php endif; ?>
             </div>
 
             <div class="formulier__veld">
@@ -85,7 +93,11 @@ $statussen = [
                     maxlength="150"
                     required
                     placeholder="naam@voorbeeld.nl"
+                    <?= isset($fouten['emailadres']) ? 'aria-invalid="true" aria-describedby="emailadres-fout"' : '' ?>
                 >
+                <?php if (isset($fouten['emailadres'])) : ?>
+                    <p class="formulier__fout" id="emailadres-fout" role="alert"><?= e($fouten['emailadres']) ?></p>
+                <?php endif; ?>
             </div>
 
             <div class="formulier__veld">
@@ -99,7 +111,11 @@ $statussen = [
                     maxlength="25"
                     required
                     placeholder="+31 6 12345678"
+                    <?= isset($fouten['telefoonnummer']) ? 'aria-invalid="true" aria-describedby="telefoonnummer-fout"' : '' ?>
                 >
+                <?php if (isset($fouten['telefoonnummer'])) : ?>
+                    <p class="formulier__fout" id="telefoonnummer-fout" role="alert"><?= e($fouten['telefoonnummer']) ?></p>
+                <?php endif; ?>
             </div>
 
             <div class="formulier__acties">

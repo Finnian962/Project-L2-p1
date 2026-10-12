@@ -20,8 +20,8 @@ use App\Models\VerkoperModel;
  *
  * Happy flow  : de verkoper wordt opgeslagen met een automatisch gegenereerd
  *               verkopernummer en verschijnt in het overzicht.
- * Unhappy flow: geen ( zoek)resultaat, of de database faalt bij het opslaan;
- *               dan blijven de ingevulde gegevens in het formulier behouden.
+ * Unhappy flow: ongeldige invoer (422), een databasefout (500) of geen
+ *               (zoek)resultaat; de ingevulde gegevens blijven dan behouden.
  */
 final class VerkoperController extends Controller
 {
@@ -31,6 +31,9 @@ final class VerkoperController extends Controller
     /** Melding wanneer het opslaan in de database mislukt. */
     private const MELDING_OPSLAAN_FOUT = 'Er is een fout opgetreden bij het opslaan van de verkoper. '
         . 'Probeer het later opnieuw.';
+
+    /** Melding wanneer verplichte velden niet zijn ingevuld. */
+    private const MELDING_VERPLICHT = 'Vul de gemarkeerde verplichte velden in.';
 
     /**
      * GET /verkopers
@@ -100,6 +103,7 @@ final class VerkoperController extends Controller
             'pad'         => '/verkopers',
             'waarden'     => self::leegFormulier(),
             'foutmelding' => null,
+            'fouten'      => [],
         ]);
     }
 
@@ -107,10 +111,10 @@ final class VerkoperController extends Controller
      * POST /verkopers/nieuw
      * Slaat de ingevulde verkoper op.
      *
-     * Happy flow  : doorverwijzing naar het overzicht met een bevestiging,
-     *               zodat de nieuwe verkoper direct in beeld staat.
-     * Unhappy flow: de database faalt; dezelfde pagina wordt opnieuw getoond
-     *               met de foutmelding én de ingevulde gegevens.
+     * Eerst de invoer controleren (ongeldige invoer -> 422), dan opslaan:
+     * happy flow stuurt door naar het overzicht met een bevestiging, een
+     * databasefout toont dezelfde pagina opnieuw met de foutmelding én de
+     * ingevulde gegevens (500).
      */
     public function opslaan(Request $request): void
     {
@@ -120,6 +124,24 @@ final class VerkoperController extends Controller
             'emailadres'     => $request->post('emailadres'),
             'telefoonnummer' => $request->post('telefoonnummer'),
         ];
+
+        $fouten = self::controleerVerplicht($waarden);
+
+        if ($fouten !== []) {
+            Logger::warning('Verkoper niet opgeslagen: verplichte velden ontbreken', [
+                'velden' => array_keys($fouten),
+            ]);
+
+            $this->toon('verkopers/nieuw', [
+                'titel'       => 'Verkoper toevoegen',
+                'pad'         => '/verkopers',
+                'waarden'     => $waarden,
+                'foutmelding' => self::MELDING_VERPLICHT,
+                'fouten'      => $fouten,
+            ], 422);
+
+            return;
+        }
 
         try {
             $verkoperId = (new VerkoperModel())->voegToe(
@@ -149,8 +171,34 @@ final class VerkoperController extends Controller
                 'pad'         => '/verkopers',
                 'waarden'     => $waarden,
                 'foutmelding' => self::MELDING_OPSLAAN_FOUT,
+                'fouten'      => [],
             ], 500);
         }
+    }
+
+    /**
+     * Controleert of de verplichte velden zijn ingevuld.
+     *
+     * @param  array<string, string> $waarden
+     * @return array<string, string> Veldnaam => melding voor dat veld.
+     */
+    private static function controleerVerplicht(array $waarden): array
+    {
+        $fouten = [];
+
+        if ($waarden['naam'] === '') {
+            $fouten['naam'] = 'Vul een naam in.';
+        }
+
+        if ($waarden['emailadres'] === '') {
+            $fouten['emailadres'] = 'Vul een e-mailadres in.';
+        }
+
+        if ($waarden['telefoonnummer'] === '') {
+            $fouten['telefoonnummer'] = 'Vul een telefoonnummer in.';
+        }
+
+        return $fouten;
     }
 
     /**

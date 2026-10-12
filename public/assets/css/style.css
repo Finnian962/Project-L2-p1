@@ -1578,3 +1578,10 @@ textarea.formulier__invoer {
     gap: 0.6rem;
     margin-top: 0.4rem;
 }
+
+/* Melding onder een veld met een validatiefout. */
+.formulier__fout {
+    margin: 0;
+    color: var(--kleur-rood);
+    font-size: 0.85rem;
+}
