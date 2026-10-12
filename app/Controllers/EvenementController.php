@@ -26,7 +26,8 @@ use App\Models\VerkoperModel;
  * Event toevoegen (alleen beheerder):
  *  - happy flow   : verplichte velden correct -> opslaan en tonen in het overzicht;
  *  - unhappy flow : ontbrekende velden (422);
- *  - unhappy flow : ongeldige gegevens, bijvoorbeeld een ongeldige datum (422).
+ *  - unhappy flow : ongeldige gegevens, bijvoorbeeld een ongeldige datum (422);
+ *  - unhappy flow : database plat of niet bereikbaar (503).
  */
 final class EvenementController extends Controller
 {
