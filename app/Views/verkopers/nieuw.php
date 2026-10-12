@@ -80,6 +80,9 @@ $statussen = [
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <?php if (isset($fouten['status'])) : ?>
+                    <p class="formulier__fout" id="status-fout" role="alert"><?= e($fouten['status']) ?></p>
+                <?php endif; ?>
             </div>
 
             <div class="formulier__veld">

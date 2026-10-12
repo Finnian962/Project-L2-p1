@@ -35,6 +35,16 @@ final class VerkoperController extends Controller
     /** Melding wanneer verplichte velden niet zijn ingevuld. */
     private const MELDING_VERPLICHT = 'Vul de gemarkeerde verplichte velden in.';
 
+    /** Melding wanneer een veld een ongeldige waarde bevat. */
+    private const MELDING_INVOER = 'Controleer de gemarkeerde velden.';
+
+    /** Maximale veldlengtes, gelijk aan de kolombreedtes in de database. */
+    private const MAX_NAAM = 120;
+
+    private const MAX_EMAILADRES = 150;
+
+    private const MAX_TELEFOONNUMMER = 25;
+
     /**
      * GET /verkopers
      * Overzicht van alle verkopers, gefilterd op soort en/of zoekterm.
@@ -125,10 +135,14 @@ final class VerkoperController extends Controller
             'telefoonnummer' => $request->post('telefoonnummer'),
         ];
 
-        $fouten = self::controleerVerplicht($waarden);
+        $fouten = self::controleerInvoer($waarden);
 
         if ($fouten !== []) {
-            Logger::warning('Verkoper niet opgeslagen: verplichte velden ontbreken', [
+            $verplichtOntbreekt = $waarden['naam'] === ''
+                || $waarden['emailadres'] === ''
+                || $waarden['telefoonnummer'] === '';
+
+            Logger::warning('Verkoper niet opgeslagen: de invoer is ongeldig', [
                 'velden' => array_keys($fouten),
             ]);
 
@@ -136,7 +150,7 @@ final class VerkoperController extends Controller
                 'titel'       => 'Verkoper toevoegen',
                 'pad'         => '/verkopers',
                 'waarden'     => $waarden,
-                'foutmelding' => self::MELDING_VERPLICHT,
+                'foutmelding' => $verplichtOntbreekt ? self::MELDING_VERPLICHT : self::MELDING_INVOER,
                 'fouten'      => $fouten,
             ], 422);
 
@@ -177,25 +191,40 @@ final class VerkoperController extends Controller
     }
 
     /**
-     * Controleert of de verplichte velden zijn ingevuld.
+     * Controleert of de ingevulde velden aan de voorwaarden voldoen.
+     *
+     * Verplichte velden moeten gevuld zijn en de lengtes mogen de
+     * kolombreedtes niet overschrijden; dan hoeft de database nooit een
+     * afgekapte of halve waarde te ontvangen.
      *
      * @param  array<string, string> $waarden
      * @return array<string, string> Veldnaam => melding voor dat veld.
      */
-    private static function controleerVerplicht(array $waarden): array
+    private static function controleerInvoer(array $waarden): array
     {
         $fouten = [];
 
         if ($waarden['naam'] === '') {
             $fouten['naam'] = 'Vul een naam in.';
+        } elseif (mb_strlen($waarden['naam']) > self::MAX_NAAM) {
+            $fouten['naam'] = 'De naam mag maximaal ' . self::MAX_NAAM . ' tekens bevatten.';
         }
 
         if ($waarden['emailadres'] === '') {
             $fouten['emailadres'] = 'Vul een e-mailadres in.';
+        } elseif (mb_strlen($waarden['emailadres']) > self::MAX_EMAILADRES) {
+            $fouten['emailadres'] = 'Het e-mailadres mag maximaal ' . self::MAX_EMAILADRES . ' tekens bevatten.';
         }
 
         if ($waarden['telefoonnummer'] === '') {
             $fouten['telefoonnummer'] = 'Vul een telefoonnummer in.';
+        } elseif (mb_strlen($waarden['telefoonnummer']) > self::MAX_TELEFOONNUMMER) {
+            $fouten['telefoonnummer'] = 'Het telefoonnummer mag maximaal '
+                . self::MAX_TELEFOONNUMMER . ' tekens bevatten.';
+        }
+
+        if (!in_array($waarden['status'], ['0', '1'], true)) {
+            $fouten['status'] = 'Kies een geldige status.';
         }
 
         return $fouten;
