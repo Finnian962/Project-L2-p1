@@ -26,6 +26,13 @@ declare(strict_types=1);
  *                                                      toevoegen)
  *   php database/demo_unhappy.php aan verkoper     -> opslaan werkt weer normaal
  *                                                      (happy flow)
+ *
+ *   php database/demo_unhappy.php uit stands       -> stand toevoegen en stand
+ *                                                      reserveren geven een
+ *                                                      databasefout (unhappy
+ *                                                      flow)
+ *   php database/demo_unhappy.php aan stands       -> beide werken weer normaal
+ *                                                      (happy flow)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -38,13 +45,13 @@ $wat     = strtolower($argv[2] ?? 'events');
 $evenementId = isset($argv[3]) ? (int) $argv[3] : 0;
 
 if (!in_array($keuze, ['aan', 'uit'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper] [event-id]' . PHP_EOL;
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands] [event-id]' . PHP_EOL;
 
     exit(1);
 }
 
-if (!in_array($wat, ['events', 'tijdsloten', 'verkoper'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper] [event-id]' . PHP_EOL;
+if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands'], true)) {
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands] [event-id]' . PHP_EOL;
 
     exit(1);
 }
@@ -71,6 +78,36 @@ try {
         echo $isActief === 1
             ? 'Het opslaan van een verkoper werkt weer normaal (happy flow).' . PHP_EOL
             : 'Elk opslaan van een verkoper geeft nu een databasefout (unhappy flow).' . PHP_EOL;
+
+        exit(0);
+    }
+
+    if ($wat === 'stands') {
+        // Unhappy flow stand toevoegen en stand reserveren: twee triggers laten
+        // elke INSERT en UPDATE op de tabel stand falen. sp_stand_toevoegen en
+        // sp_stand_reserveren gaan daardoor terug op nul en de controllers
+        // tonen een nette melding. Herstel gooit de triggers weer weg.
+        if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_stand_toevoegen');
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_stand_reserveren');
+        } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_stand_toevoegen BEFORE INSERT ON stand "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_stand_reserveren BEFORE UPDATE ON stand "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
+        }
+
+        Logger::info('Foutmodus stands gewijzigd via demoscript', ['is_actief' => $isActief]);
+
+        echo $isActief === 1
+            ? 'Stand toevoegen en stand reserveren werken weer normaal (happy flow).' . PHP_EOL
+            : 'Stand toevoegen en stand reserveren geven nu een databasefout (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }

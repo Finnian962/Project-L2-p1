@@ -68,7 +68,8 @@ Route: `/beheer/stands/toevoegen` (knop **Stand toevoegen** op
 
 ```bash
 # ongeldige invoer (422): prijs "abc" invullen en opslaan
-# database niet bereikbaar (503): zie hieronder bij Testen
+# geen evenementen (422):  php database/demo_unhappy.php uit events
+# databasefout (503):      php database/demo_unhappy.php uit stands
 ```
 
 ## Stand reserveren (standhouder)
@@ -87,7 +88,25 @@ Routes: `/stands/beschikbaar` (overzicht), POST `/stands/reserveren` en
 # geen stand gekozen           → melding op /stands/beschikbaar
 # net vergeven (2e reservering)→ "Deze stand is net door iemand anders gereserveerd."
 # account zonder verkoper      → melding op /reserveringen
+# databasefout (503):          php database/demo_unhappy.php uit stands
 ```
+
+### Beide ongelukkige scenario's laten zien
+
+De databasefout is in de browser niet te veroorzaken, dus die zet je met een
+commando aan. Hetzelfde commando blokkeert ook het toevoegen van een stand:
+
+```
+php database/demo_unhappy.php uit stands    # beide handelingen falen nu
+php database/demo_unhappy.php aan stands    # beide werken weer normaal
+```
+
+Tussen die twee commando's in probeer je als `noah` een stand op te slaan en als
+`kickz` een stand te reserveren. Beide keren verschijnt de rode melding ("De
+stand is niet opgeslagen" / "De reservering kon niet worden opgeslagen"),
+blijven de ingevulde waarden in het formulier staan en wordt er niets
+geschreven: het standenoverzicht telt niet omhoog en de stand blijft
+*Beschikbaar*.
 
 ## Verkopersoverzicht
 
