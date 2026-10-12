@@ -1,8 +1,8 @@
 -- =============================================================================
 -- Sneakerness(R) - Testdata (seed)
 -- -----------------------------------------------------------------------------
--- Vult de database met realistische demodata zodat de read-schermen van
--- Sprint 1 getoond kunnen worden tijdens de sprintreview.
+-- Vult de database met realistische demodata zodat alle schermen (verkopers,
+-- stands, tickets en inlogaccounts) getoond kunnen worden tijdens de review.
 -- =============================================================================
 
 USE sneakerness;

@@ -1,6 +1,6 @@
 # Project-L2-p1
 
-Sneakerness® Rotterdam — Sprint 1 (read-functionaliteit)
+Sneakerness® Rotterdam — publieke site, tickets, verkopers en inloggen met rollen
 
 ## Setup
 
@@ -30,6 +30,64 @@ Sneakerness® Rotterdam — Sprint 1 (read-functionaliteit)
   php database/delete-event.php
   ```
 - Na elke wissel: **Ctrl+F5** op de page.
+
+## Inloggen (rollen)
+
+Route: `/inloggen` — gebruikersnaam en wachtwoord. Na een geslaagde inlog komt
+de naam van de gebruiker met een knop **Uitloggen** in het navigatiemenu te
+staan, en de standhouder krijgt bovendien het menu-item *Reserveringen*.
+
+| Rol | Gebruikersnaam | Wachtwoord | Toegang tot |
+|---|---|---|---|
+| Beheerder | `noah`, `ilse` | `Sneakerness2026!` | `/beheer`, `/beheer/stands`, `/beheer/stands/toevoegen`, `/beheer/log` |
+| Standhouder | `kickz`, `sole`, `crep` | `Sneakerness2026!` | `/stands/beschikbaar`, `/reserveringen` |
+
+- Wie al ingelogd is en `/inloggen` bezoekt, gaat direct naar de homepagina en
+  krijgt het formulier niet te zien.
+- Niet-ingelogde bezoekers van een afgeschermde pagina worden doorgestuurd naar
+  `/inloggen`; ingelogde gebruikers met de verkeerde rol krijgen "Geen toegang"
+  (403) te zien.
+
+Scenarios:
+
+```bash
+# verkeerde gebruikersnaam/wachtwoord → melding op het formulier (401)
+# database niet bereikbaar            → melding op het formulier (503)
+```
+
+## Stand toevoegen (beheerder)
+
+Route: `/beheer/stands/toevoegen` (knop **Stand toevoegen** op
+`/beheer/stands`), opgeslagen via `sp_stand_toevoegen`.
+
+- **Happy flow**: editie, standtype (A, AA of AA+), prijs en een optionele
+  opmerking invullen → knop **Opslaan** → melding *"De stand is succesvol
+  toegevoegd."* → doorverwijzing naar `/beheer/stands`, waar de nieuwe stand
+  met status *Beschikbaar* staat. De stand verschijnt meteen ook in het aanbod
+  op `/stands`.
+
+```bash
+# ongeldige invoer (422): prijs "abc" invullen en opslaan
+# database niet bereikbaar (503): zie hieronder bij Testen
+```
+
+## Stand reserveren (standhouder)
+
+Routes: `/stands/beschikbaar` (overzicht), POST `/stands/reserveren` en
+`/reserveringen` (eigen reserveringen), via `sp_stand_beschikbaar`,
+`sp_stand_reserveren` en `sp_reservering_overzicht`.
+
+- **Happy flow**: inloggen als `kickz` → `/stands/beschikbaar` → knop
+  **Reserveren** → melding *"De stand is succesvol gereserveerd."* →
+  `/reserveringen` toont de stand met status *Gereserveerd* en de
+  reservatiedatum. In het beheeroverzicht staat dezelfde stand nu ook als
+  *Gereserveerd*, met de naam van de standhouder erbij.
+
+```bash
+# geen stand gekozen           → melding op /stands/beschikbaar
+# net vergeven (2e reservering)→ "Deze stand is net door iemand anders gereserveerd."
+# account zonder verkoper      → melding op /reserveringen
+```
 
 ## Verkopersoverzicht
 

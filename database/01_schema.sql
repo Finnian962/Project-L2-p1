@@ -1,5 +1,5 @@
 -- =============================================================================
--- Sneakerness(R) - Databaseschema (Sprint 1)
+-- Sneakerness(R) - Databaseschema
 -- -----------------------------------------------------------------------------
 -- Dit script maakt de database en alle tabellen aan volgens het ERD
 -- (zie docs/ERD.md). Alle tabellen gebruiken InnoDB zodat foreign keys
