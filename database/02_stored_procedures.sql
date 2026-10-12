@@ -12,6 +12,7 @@ USE sneakerness;
 
 DROP PROCEDURE IF EXISTS sp_evenement_overzicht;
 DROP PROCEDURE IF EXISTS sp_evenement_details;
+DROP PROCEDURE IF EXISTS sp_evenement_toevoegen;
 DROP PROCEDURE IF EXISTS sp_tijdslot_overzicht;
 DROP PROCEDURE IF EXISTS sp_standtype_overzicht;
 DROP PROCEDURE IF EXISTS sp_verkoper_overzicht;
