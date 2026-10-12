@@ -12,6 +12,7 @@ declare(strict_types=1);
  *  4. onverwachte fouten opvangen en als nette melding tonen.
  */
 
+use App\Controllers\AuthController;
 use App\Controllers\BeheerController;
 use App\Controllers\EvenementController;
 use App\Controllers\FoutController;
@@ -29,6 +30,11 @@ require __DIR__ . '/../app/bootstrap.php';
 $request = Request::vanuitGlobals();
 
 $router = new Router();
+
+// Inloggen en uitloggen (beheerders en standhouders)
+$router->get('/inloggen', AuthController::class, 'inloggenFormulier');
+$router->post('/inloggen', AuthController::class, 'inloggen');
+$router->post('/uitloggen', AuthController::class, 'uitloggen');
 
 // Publieke pagina's
 $router->get('/', HomeController::class, 'index');
