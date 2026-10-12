@@ -95,6 +95,23 @@ final class VerkoperModel extends Model
     }
 
     /**
+     * Controleert of er al een actieve verkoper met deze naam bestaat.
+     *
+     * De naam wordt hoofdletterongevoelig vergeleken, zodat "Kickz Kollektiv"
+     * en "kickz kollektiv" als dezelfde verkoper gelden.
+     */
+    public function bestaatNaam(string $naam): bool
+    {
+        foreach ($this->haalOverzicht(0, '') as $verkoper) {
+            if (strcasecmp($verkoper->naam, $naam) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param  list<array<string, mixed>> $rijen
      * @return list<Verkoper>
      */

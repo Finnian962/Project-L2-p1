@@ -38,6 +38,10 @@ final class VerkoperController extends Controller
     /** Melding wanneer een veld een ongeldige waarde bevat. */
     private const MELDING_INVOER = 'Controleer de gemarkeerde velden.';
 
+    /** Melding wanneer de naam al bij een bestaande verkoper hoort. */
+    private const MELDING_DUBBEL = 'Er bestaat al een verkoper met deze naam. '
+        . 'Controleer de gegevens of vul een andere naam in.';
+
     /** Maximale veldlengtes, gelijk aan de kolombreedtes in de database. */
     private const MAX_NAAM = 120;
 
@@ -153,6 +157,22 @@ final class VerkoperController extends Controller
                 'foutmelding' => $verplichtOntbreekt ? self::MELDING_VERPLICHT : self::MELDING_INVOER,
                 'fouten'      => $fouten,
             ], 422);
+
+            return;
+        }
+
+        if ((new VerkoperModel())->bestaatNaam($waarden['naam'])) {
+            Logger::warning('Verkoper niet opgeslagen: de naam bestaat al', [
+                'naam' => $waarden['naam'],
+            ]);
+
+            $this->toon('verkopers/nieuw', [
+                'titel'       => 'Verkoper toevoegen',
+                'pad'         => '/verkopers',
+                'waarden'     => $waarden,
+                'foutmelding' => self::MELDING_DUBBEL,
+                'fouten'      => ['naam' => 'Er bestaat al een verkoper met deze naam.'],
+            ], 409);
 
             return;
         }
