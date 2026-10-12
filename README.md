@@ -53,6 +53,32 @@ Unhappy flows op deze pagina:
 | Zoekopdracht zonder resultaat | "Er zijn geen gevonden voor "…"." |
 | Database niet bereikbaar | "De gegevens konden niet worden opgehaald." (HTTP 503) |
 
+## Verkoper toevoegen (medewerker)
+
+Deel van de user story *"Als medewerker wil ik een nieuwe verkoper kunnen
+toevoegen"*, bereikbaar vanaf de knop **Verkoper toevoegen** in de kop van de
+beheerpagina (`/beheer`).
+
+| | |
+| --- | --- |
+| `GET /verkopers/nieuw` | toont het formulier met de velden **naam**, **status** (gewone verkoper of partner), **e-mailadres** en **telefoonnummer** |
+| `POST /verkopers/nieuw` | slaat de ingevulde verkoper op |
+
+De opslag loopt via de stored procedure `sp_verkoper_toevoegen`: verkoper,
+contactpersoon en de koppeling daartussen worden in één transactie
+weggeschreven, zodat er nooit een verkoper zonder bereikbaar contactpersoon
+ontstaat. Wanneer één van de drie inserts faalt wordt alles teruggedraaid
+(`ROLLBACK`) en komt de fout bij de applicatie terecht. Het verkopernummer is
+de auto_increment `verkoper.id` en wordt dus automatisch gegenereerd.
+
+Na een succesvolle opslag volgt een doorverwijzing (Post/Redirect/Get) naar
+`/verkopers?toegevoegd={id}`. Zo toont het overzicht meteen de nieuwe verkoper
+én is het verversen van de pagina geen tweede keer opslaan.
+
+Een nieuwe verkoper heeft nog geen stand: daarom toont `sp_verkoper_overzicht`
+stands met een `LEFT JOIN` en zie je op de kaart geen stand-badges, alleen
+naam, soort, status en het aantal contactpersonen.
+
 ## Ticketpagina: tijdsloten
 
 Route: `/tickets` — kies een editie in het dropdown-veld en klik op
