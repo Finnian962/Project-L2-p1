@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * Voert achtereenvolgens uit:
  *   1. 01_schema.sql            (database en tabellen)
- *   2. 02_stored_procedures.sql (alle read-procedures)
+ *   2. 02_stored_procedures.sql (alle procedures)
  *   3. 03_seed.sql              (demodata)
  *
  * Gebruik vanaf de commandline:

@@ -1,9 +1,9 @@
 -- =============================================================================
--- Sneakerness(R) - Stored procedures (Sprint 1: read-functionaliteit)
+-- Sneakerness(R) - Stored procedures (Sprint 1: read, Sprint 2: auth en stands)
 -- -----------------------------------------------------------------------------
--- Alle leesacties van de webapplicatie lopen via deze stored procedures.
--- De applicatie voert dus geen losse SELECT-statements uit; dat houdt de
--- SQL op één plek en maakt de queries herbruikbaar en testbaar.
+-- Bijna alle acties van de webapplicatie lopen via deze stored procedures.
+-- De applicatie voert dus geen losse SELECT-, INSERT- of UPDATE-statements
+-- uit; dat houdt de SQL op één plek en maakt de queries herbruikbaar.
 --
 -- Conventie: sp_<entiteit>_<actie>
 -- =============================================================================
@@ -20,6 +20,12 @@ DROP PROCEDURE IF EXISTS sp_sidestand_overzicht;
 DROP PROCEDURE IF EXISTS sp_contactpersoon_per_verkoper;
 DROP PROCEDURE IF EXISTS sp_rapport_ticketverkoop;
 DROP PROCEDURE IF EXISTS sp_rapport_standverhuur;
+DROP PROCEDURE IF EXISTS sp_gebruiker_inloggen;
+DROP PROCEDURE IF EXISTS sp_stand_overzicht;
+DROP PROCEDURE IF EXISTS sp_stand_beschikbaar;
+DROP PROCEDURE IF EXISTS sp_stand_toevoegen;
+DROP PROCEDURE IF EXISTS sp_stand_reserveren;
+DROP PROCEDURE IF EXISTS sp_reservering_overzicht;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_events;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_tijdsloten;
 
@@ -414,6 +420,172 @@ BEGIN
     END IF;
 
     SELECT ROW_COUNT() AS aantal_gewijzigd;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_gebruiker_inloggen
+-- Zoekt een actief inlogaccount op gebruikersnaam.
+-- Het wachtwoord komt als hash mee terug; de applicatie vergelijkt dat met
+-- password_verify(). Bestaat het account niet, dan levert de procedure nul
+-- rijen op en toont de controller dezelfde melding als bij een verkeerd
+-- wachtwoord (geen informatie lekken over bestaande gebruikersnamen).
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_gebruiker_inloggen(IN p_gebruikersnaam VARCHAR(50))
+BEGIN
+    SELECT
+        g.id,
+        g.naam,
+        g.gebruikersnaam,
+        g.wachtwoord,
+        g.rol,
+        g.verkoper_id
+    FROM gebruiker g
+    WHERE g.gebruikersnaam = p_gebruikersnaam
+      AND g.is_actief = 1
+    LIMIT 1;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_overzicht
+-- Alle stands van een evenement met verhuurder en status, voor het
+-- beheeroverzicht. p_evenement_id = 0 of NULL geeft alle stands.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_overzicht(IN p_evenement_id INT UNSIGNED)
+BEGIN
+    SELECT
+        s.id,
+        s.evenement_id,
+        e.naam                     AS evenement_naam,
+        s.stand_type,
+        s.prijs,
+        s.verhuurd_status,
+        CASE WHEN s.verhuurd_status = 1 THEN 'Gereserveerd' ELSE 'Beschikbaar' END AS status,
+        s.opmerking,
+        s.datum_aangemaakt,
+        v.id                       AS verkoper_id,
+        v.naam                     AS verkoper_naam
+    FROM stand s
+    INNER JOIN evenement e
+        ON e.id = s.evenement_id
+       AND e.is_actief = 1
+    LEFT JOIN verkoper v
+        ON v.id = s.verkoper_id
+       AND v.is_actief = 1
+    WHERE s.is_actief = 1
+      AND (p_evenement_id IS NULL OR p_evenement_id = 0 OR s.evenement_id = p_evenement_id)
+    ORDER BY e.datum ASC, s.id ASC;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_beschikbaar
+-- De stands die een standhouder nog kan reserveren: vrij, actief en van een
+-- actief evenement. Dit is de bron voor de pagina met beschikbare standen.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_beschikbaar(IN p_evenement_id INT UNSIGNED)
+BEGIN
+    SELECT
+        s.id,
+        s.evenement_id,
+        e.naam                     AS evenement_naam,
+        e.datum                    AS evenement_datum,
+        e.locatie                  AS evenement_locatie,
+        s.stand_type,
+        s.prijs,
+        s.verhuurd_status,
+        'Beschikbaar'              AS status
+    FROM stand s
+    INNER JOIN evenement e
+        ON e.id = s.evenement_id
+       AND e.is_actief = 1
+    WHERE s.is_actief = 1
+      AND s.verhuurd_status = 0
+      AND (p_evenement_id IS NULL OR p_evenement_id = 0 OR s.evenement_id = p_evenement_id)
+    ORDER BY e.datum ASC, FIELD(s.stand_type, 'AA+', 'AA', 'A'), s.id ASC;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_toevoegen
+-- Voegt een nieuwe stand toe aan een evenement (actie van de beheerder).
+-- De stand start vrij (verhuurd_status = 0) en is daarmee meteen zichtbaar
+-- in het standenaanbod op /stands.
+-- Loopt een FOREIGN KEY- of ENUM-fout aan, dan gooit MySQL een fout die de
+-- Model-basislaat vangt en omzet in een nette melding.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_toevoegen(
+    IN p_evenement_id INT UNSIGNED,
+    IN p_stand_type   VARCHAR(3),
+    IN p_prijs        DECIMAL(8, 2),
+    IN p_opmerking    VARCHAR(255)
+)
+BEGIN
+    INSERT INTO stand (evenement_id, stand_type, prijs, verhuurd_status, opmerking)
+    VALUES (p_evenement_id, p_stand_type, p_prijs, 0, p_opmerking);
+
+    SELECT LAST_INSERT_ID() AS stand_id;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_reserveren
+-- Reserveert een stand voor een standhouder.
+-- De WHERE-clausule controleert dat de stand nog vrij is: twee standhouders
+-- kunnen daardoor nooit allebei dezelfde stand reserveren.
+-- p_verkoper_id = 0 betekent dat de standhouder geen verkoper gekoppeld heeft;
+-- dan blijft de stand vrij van een verhuurder maar is hij wel gereserveerd.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_reserveren(
+    IN p_stand_id    INT UNSIGNED,
+    IN p_verkoper_id INT UNSIGNED
+)
+BEGIN
+    DECLARE v_aantal INT UNSIGNED DEFAULT 0;
+
+    UPDATE stand
+    SET verhuurd_status = 1,
+        verkoper_id     = CASE WHEN p_verkoper_id = 0 THEN verkoper_id ELSE p_verkoper_id END
+    WHERE id = p_stand_id
+      AND is_actief = 1
+      AND verhuurd_status = 0;
+
+    SET v_aantal = ROW_COUNT();
+
+    SELECT
+        v_aantal                                             AS aantal_gewijzigd,
+        CASE WHEN v_aantal = 1 THEN 'Gereserveerd'
+             ELSE (SELECT CASE WHEN verhuurd_status = 1 THEN 'Gereserveerd' ELSE 'Beschikbaar' END
+                   FROM stand WHERE id = p_stand_id) END     AS status;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_reservering_overzicht
+-- Alle gereserveerde stands van één verkoper (de standhouder), met de
+-- gegevens van het evenement erbij voor de pagina 'Mijn reserveringen'.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_reservering_overzicht(IN p_verkoper_id INT UNSIGNED)
+BEGIN
+    SELECT
+        s.id,
+        s.evenement_id,
+        e.naam                     AS evenement_naam,
+        e.datum                    AS evenement_datum,
+        e.locatie                  AS evenement_locatie,
+        s.stand_type,
+        s.prijs,
+        s.verhuurd_status,
+        s.opmerking,
+        s.datum_aangemaakt,
+        'Gereserveerd'             AS status,
+        v.naam                     AS verkoper_naam
+    FROM stand s
+    INNER JOIN evenement e
+        ON e.id = s.evenement_id
+       AND e.is_actief = 1
+    LEFT JOIN verkoper v
+        ON v.id = s.verkoper_id
+    WHERE s.is_actief = 1
+      AND s.verhuurd_status = 1
+      AND p_verkoper_id > 0
+      AND s.verkoper_id = p_verkoper_id
+    ORDER BY e.datum ASC, s.id ASC;
 END$$
 
 DELIMITER ;
