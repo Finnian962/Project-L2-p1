@@ -79,6 +79,51 @@ Een nieuwe verkoper heeft nog geen stand: daarom toont `sp_verkoper_overzicht`
 stands met een `LEFT JOIN` en zie je op de kaart geen stand-badges, alleen
 naam, soort, status en het aantal contactpersonen.
 
+### Het happy flow laten zien
+
+1. Open `/beheer` en klik op **Verkoper toevoegen**.
+2. Vul naam, status, e-mailadres en telefoonnummer in en klik **Opslaan**.
+3. Je staat op `/verkopers` met de melding **"De verkoper is succesvol
+   toegevoegd."** en de nieuwe verkoper als kaart in de lijst; de teller is
+   één omhoog gegaan.
+
+Unhappy flows op deze pagina:
+
+| Situatie | Melding | Status |
+| --- | --- | --- |
+| Naam leeg | "Vul een naam in." — erboven "Vul de gemarkeerde verplichte velden in." | 422 |
+| E-mailadres of telefoonnummer leeg | "Vul een e-mailadres in." / "Vul een telefoonnummer in." | 422 |
+| Naam langer dan 120 tekens | "De naam mag maximaal 120 tekens bevatten." | 422 |
+| E-mailadres langer dan 150 tekens | "Het e-mailadres mag maximaal 150 tekens bevatten." | 422 |
+| Telefoonnummer langer dan 25 tekens | "Het telefoonnummer mag maximaal 25 tekens bevatten." | 422 |
+| Ongeldig e-mailadres | "Vul een geldig e-mailadres in, bijvoorbeeld naam@voorbeeld.nl." | 422 |
+| Ongeldige statuswaarde | "Kies een geldige status." | 422 |
+| Verkoper met dezelfde naam bestaat al | "Er bestaat al een verkoper met deze naam. Controleer de gegevens of vul een andere naam in." | 409 |
+| **Databasefout bij het opslaan** | **"Er is een fout opgetreden bij het opslaan van de verkoper. Probeer het later opnieuw."** | 500 |
+
+Bij elke melding blijven de ingevulde gegevens in het formulier staan en wordt
+er niets opgeslagen.
+
+### Het ongelukkige scenario laten zien
+
+De databasefout is niet in de browser te veroorzaken (het naamveld is
+maximaal 120 tekens lang), dus die zet je met een commando aan:
+
+```
+php database/demo_unhappy.php uit verkoper    # elke opslaan faalt nu
+php database/demo_unhappy.php aan verkoper    # weer normaal
+```
+
+Tussen die twee commando's in: formulier invullen, **Opslaan** klikken, en je
+ziet de rode melding met alle ingevulde waarden nog in de velden.
+
+De hele flow is ook geautomatiseerd te controleren (24 controles; de server
+moet draaien):
+
+```
+php database/test-verkoper-toevoegen.php
+```
+
 ## Ticketpagina: tijdsloten
 
 Route: `/tickets` — kies een editie in het dropdown-veld en klik op
