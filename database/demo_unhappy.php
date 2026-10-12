@@ -33,6 +33,12 @@ declare(strict_types=1);
  *                                                      flow)
  *   php database/demo_unhappy.php aan stands       -> beide werken weer normaal
  *                                                      (happy flow)
+ *
+ *   php database/demo_unhappy.php uit event        -> opslaan van een event
+ *                                                      geeft een databasefout
+ *                                                      (unhappy flow event
+ *                                                      toevoegen)
+ *   php database/demo_unhappy.php aan event        -> opslaan werkt weer normaal
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -45,13 +51,13 @@ $wat     = strtolower($argv[2] ?? 'events');
 $evenementId = isset($argv[3]) ? (int) $argv[3] : 0;
 
 if (!in_array($keuze, ['aan', 'uit'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands] [event-id]' . PHP_EOL;
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
 
     exit(1);
 }
 
-if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands] [event-id]' . PHP_EOL;
+if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands', 'event'], true)) {
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
 
     exit(1);
 }
@@ -108,6 +114,26 @@ try {
         echo $isActief === 1
             ? 'Stand toevoegen en stand reserveren werken weer normaal (happy flow).' . PHP_EOL
             : 'Stand toevoegen en stand reserveren geven nu een databasefout (unhappy flow).' . PHP_EOL;
+
+        exit(0);
+    }
+
+    if ($wat === 'event') {
+        if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_evenement');
+        } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_evenement BEFORE INSERT ON evenement "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
+        }
+
+        Logger::info('Foutmodus event gewijzigd via demoscript', ['is_actief' => $isActief]);
+
+        echo $isActief === 1
+            ? 'Het opslaan van een event werkt weer normaal (happy flow).' . PHP_EOL
+            : 'Elk opslaan van een event geeft nu een databasefout (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }
