@@ -9,7 +9,8 @@ declare(strict_types=1);
  *               doorverwijzing naar het eventoverzicht.
  * Unhappy flow: ontbrekende velden of ongeldige gegevens (422), of de
  *               database is plat (503). De melding verschijnt boven het
- *               formulier, de invoer blijft behouden.
+ *               formulier, de invoer blijft behouden. novalidate staat aan
+ *               zodat de server-melding zichtbaar is bij lege velden.
  *
  * @var array<string, string> $waarden
  * @var string|null           $foutmelding
