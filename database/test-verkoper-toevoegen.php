@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Controleert het scenario van "Verkoper toevoegen" (/verkopers/nieuw).
+ * Controleert beide scenario's van "Verkoper toevoegen" (/verkopers/nieuw).
  *
  * Happy flow:
  *   1. het formulier laadt met de velden naam, status, e-mailadres en
@@ -15,7 +15,16 @@ declare(strict_types=1);
  *   5. het verkopernummer is automatisch gegenereerd en er hoort een
  *      contactpersoon bij de verkoper.
  *
- * Alles wat deze test aanmaakt wordt na afloop weer verwijderd.
+ * Unhappy flow:
+ *   1. lege velden -> 422 met een melding per veld, er wordt niets opgeslagen;
+ *   2. een databasefout -> 500 met "Er is een fout opgetreden bij het opslaan
+ *      van de verkoper. Probeer het later opnieuw.", alle ingevulde gegevens
+ *      blijven in het formulier staan en er wordt niets weggeschreven
+ *      (rollback). De fout wordt geforceerd met dezelfde trigger als
+ *      `php database/demo_unhappy.php uit verkoper`.
+ *
+ * Alles wat deze test aanmaakt wordt na afloop weer verwijderd en de trigger
+ * waarmee de databasefout wordt geforceerd verdwijnt altijd, ook bij een fout.
  *
  * Gebruik: php database/test-verkoper-toevoegen.php [baseUrl]
  *          standaard http://127.0.0.1:8090 (terugval op 8000)
@@ -190,12 +199,97 @@ if ($verkoperId > 0) {
 
 echo PHP_EOL . 'Opruimen            : verkoper ' . $verkoperId . ' verwijderd' . PHP_EOL;
 
+// --- Unhappy flow 1: ongeldige invoer ---------------------------------------
+
+echo PHP_EOL . 'UNHAPPY FLOW (ongeldige invoer)' . PHP_EOL;
+
+$leeg = verzoek($baseUrl . '/verkopers/nieuw', [
+    'naam'           => '',
+    'status'         => '0',
+    'emailadres'     => '',
+    'telefoonnummer' => '',
+]);
+
+controle('Lege velden geven een validatiefout (422)', $leeg !== null && $leeg['status'] === 422);
+controle(
+    'De melding "Vul de gemarkeerde verplichte velden in." staat er',
+    $leeg !== null && str_contains($leeg['body'], 'Vul de gemarkeerde verplichte velden in.')
+);
+controle('De naam heeft een eigen veldfout', $leeg !== null && str_contains($leeg['body'], 'id="naam-fout"'));
+controle('Het formulier blijft staan', $leeg !== null && str_contains($leeg['body'], 'name="naam"'));
+
+$legeNamen = $pdo->query("SELECT COUNT(*) FROM verkoper WHERE naam = ''")->fetchColumn();
+controle('Er is niets opgeslagen', (int) $legeNamen === 0);
+
+// --- Unhappy flow 2: databasefout -------------------------------------------
+
+echo PHP_EOL . 'UNHAPPY FLOW (databasefout)' . PHP_EOL;
+
+$foutNaam = 'Acceptatietest fout ' . $suffix;
+$foutEmail = 'fout-' . $suffix . '@voorbeeld.nl';
+
+// Dezelfde trigger als `php database/demo_unhappy.php uit verkoper`.
+$pdo->exec(
+    "CREATE TRIGGER trg_demo_fout_verkoper BEFORE INSERT ON verkoper "
+    . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+    . "SET MESSAGE_TEXT = 'Acceptatietest: geforceerde databasefout'"
+);
+
+try {
+    $foutPost = verzoek($baseUrl . '/verkopers/nieuw', [
+        'naam'           => $foutNaam,
+        'status'         => '1',
+        'emailadres'     => $foutEmail,
+        'telefoonnummer' => $telefoon,
+    ]);
+
+    controle('Een databasefout geeft HTTP 500', $foutPost !== null && $foutPost['status'] === 500);
+    controle(
+        'De exacte foutmelding staat er',
+        $foutPost !== null && str_contains(
+            $foutPost['body'],
+            'Er is een fout opgetreden bij het opslaan van de verkoper. Probeer het later opnieuw.'
+        )
+    );
+    controle(
+        'De ingevulde naam blijft behouden',
+        $foutPost !== null && str_contains($foutPost['body'], 'value="' . $foutNaam . '"')
+    );
+    controle(
+        'Het e-mailadres blijft behouden',
+        $foutPost !== null && str_contains($foutPost['body'], 'value="' . $foutEmail . '"')
+    );
+    controle(
+        'Het telefoonnummer blijft behouden',
+        $foutPost !== null && str_contains($foutPost['body'], 'value="' . $telefoon . '"')
+    );
+    controle(
+        'De status blijft behouden (Partner geselecteerd)',
+        $foutPost !== null && str_contains($foutPost['body'], '<option value="1" selected>')
+    );
+    controle('Het formulier wordt opnieuw getoond', $foutPost !== null && str_contains($foutPost['body'], 'name="naam"'));
+
+    $opgeslagen = $pdo->prepare('SELECT COUNT(*) FROM verkoper WHERE naam = ?');
+    $opgeslagen->execute([$foutNaam]);
+    controle('Er is niets opgeslagen (rollback)', (int) $opgeslagen->fetchColumn() === 0);
+} finally {
+    // De trigger verdwijnt altijd, anders blijft de site in de foutmodus staan.
+    $pdo->exec('DROP TRIGGER IF EXISTS trg_demo_fout_verkoper');
+}
+
+$trigger = $pdo->query(
+    "SELECT COUNT(*) FROM information_schema.triggers
+     WHERE trigger_schema = DATABASE() AND trigger_name = 'trg_demo_fout_verkoper'"
+)->fetchColumn();
+
+controle('De trigger is weer verwijderd', (int) $trigger === 0);
+
 // --- Resultaat --------------------------------------------------------------
 
 echo PHP_EOL;
 
 if ($fouten === []) {
-    echo 'Alle controles geslaagd. De happy flow van verkoper toevoegen werkt.' . PHP_EOL;
+    echo 'Alle controles geslaagd: beide scenario\'s van verkoper toevoegen werken.' . PHP_EOL;
     exit(0);
 }
 
