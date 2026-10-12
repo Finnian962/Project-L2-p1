@@ -139,6 +139,52 @@ BEGIN
 END$$
 
 -- -----------------------------------------------------------------------------
+-- sp_evenement_toevoegen
+-- Slaat een nieuw event op. Verplichte velden: naam, datum, locatie.
+-- Tickets per tijdslot en stands mogen 0 zijn; de PHP-laag controleert
+-- of het getallen zijn. Geeft het nieuwe id terug.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_evenement_toevoegen(
+    IN p_naam                        VARCHAR(150),
+    IN p_datum                       DATE,
+    IN p_locatie                     VARCHAR(150),
+    IN p_aantal_tickets_per_tijdslot INT UNSIGNED,
+    IN p_beschikbare_stands          INT UNSIGNED,
+    IN p_opmerking                   VARCHAR(255)
+)
+BEGIN
+    IF p_naam IS NULL OR TRIM(p_naam) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Naam is verplicht.';
+    END IF;
+
+    IF p_datum IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Datum is verplicht.';
+    END IF;
+
+    IF p_locatie IS NULL OR TRIM(p_locatie) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Locatie is verplicht.';
+    END IF;
+
+    INSERT INTO evenement (
+        naam,
+        datum,
+        locatie,
+        aantal_tickets_per_tijdslot,
+        beschikbare_stands,
+        opmerking
+    ) VALUES (
+        TRIM(p_naam),
+        p_datum,
+        TRIM(p_locatie),
+        COALESCE(p_aantal_tickets_per_tijdslot, 0),
+        COALESCE(p_beschikbare_stands, 0),
+        NULLIF(TRIM(p_opmerking), '')
+    );
+
+    SELECT LAST_INSERT_ID() AS evenement_id;
+END$$
+
+-- -----------------------------------------------------------------------------
 -- sp_tijdslot_overzicht
 -- Alle tijdsloten met tarief en actuele beschikbaarheid.
 -- INNER JOIN evenement  -> alleen tijdsloten van actieve evenementen
