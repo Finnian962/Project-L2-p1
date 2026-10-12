@@ -20,11 +20,12 @@ $totaalOmzet = array_sum(array_column($ticketverkoop, 'omzet'))
         <p class="pagina-kop__label">Organisator</p>
         <h1 class="pagina-kop__titel">Beheer en rapportage</h1>
         <p class="pagina-kop__tekst">
-            Realtime inzicht in de ticketverkoop en de standverhuur per editie. Het aanmaken,
-            wijzigen en verwijderen van events, tijdsloten en stands staat gepland voor Sprint 2.
+            Realtime inzicht in de ticketverkoop en de standverhuur per editie. Het overzicht van
+            alle stands en het toevoegen van een nieuwe stand staan onder "Stands beheren".
         </p>
 
         <div class="pagina-kop__acties">
+            <a class="knop" href="<?= e(url('/beheer/stands')) ?>">Stands beheren</a>
             <a class="knop knop--leeg" href="<?= e(url('/beheer/log')) ?>">Technische log bekijken</a>
         </div>
     </div>

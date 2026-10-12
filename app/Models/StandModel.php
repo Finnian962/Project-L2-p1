@@ -39,4 +39,15 @@ final class StandModel extends Model
             $standtypes
         ));
     }
+
+    /**
+     * Alle stands van een evenement (of van alle evenementen bij id 0) met
+     * verhuurder en status, voor het beheeroverzicht.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function haalOverzicht(int $evenementId = 0): array
+    {
+        return $this->roepProcedureAan('sp_stand_overzicht', [$evenementId]);
+    }
 }

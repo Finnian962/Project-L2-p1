@@ -53,10 +53,19 @@ final class Request
      *
      * Hierdoor werkt de applicatie zowel via de ingebouwde PHP-server als
      * via Apache in een submap (WAMP/XAMPP).
+     *
+     * Let op: de ingebouwde PHP-server zet SCRIPT_NAME gelijk aan het
+     * aangevraagde pad (bijv. '/beheer/stands'). Alleen een SCRIPT_NAME dat
+     * op een script eindigt is bruikbaar om het basispad uit af te leiden,
+     * anders zou het laatste URL-segment eraf worden gehaald.
      */
     public static function basisPad(): string
     {
         $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+
+        if (!str_ends_with($script, '.php')) {
+            return '';
+        }
 
         // dirname() geeft op Windows een backslash terug; die maken we weer plat.
         $map = rtrim(str_replace('\\', '/', dirname($script)), '/');
