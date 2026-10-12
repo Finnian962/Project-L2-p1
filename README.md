@@ -61,6 +61,11 @@ Route: `/beheer/events/toevoegen` (knop **Event toevoegen** op `/beheer` en
 op `/events` als je als beheerder bent ingelogd), opgeslagen via
 `sp_evenement_toevoegen`.
 
+- **Happy flow**: naam, datum (`jjjj-mm-dd`), locatie, tickets per tijdslot en
+  beschikbare stands invullen → knop **Opslaan** → melding *"Het event is
+  succesvol toegevoegd."* → doorverwijzing naar `/events`, waar het nieuwe
+  event in de lijst staat (gesorteerd op datum).
+
 ## Stand toevoegen (beheerder)
 
 Route: `/beheer/stands/toevoegen` (knop **Stand toevoegen** op
