@@ -203,3 +203,31 @@ CREATE TABLE contact_per_verkoper (
         FOREIGN KEY (contactpersoon_id) REFERENCES contactpersoon (id)
         ON DELETE CASCADE
 ) ENGINE = InnoDB;
+
+-- -----------------------------------------------------------------------------
+-- Tabel: gebruiker
+-- Inlogaccount voor de beheeromgeving en voor standhouders.
+--
+--   rol = 'beheerder'    -> organisator; beheert events en stands (verkoper_id NULL).
+--   rol = 'standhouder'  -> verkoper die stands reserveert; gekoppeld via verkoper_id.
+--
+-- Het wachtwoord staat als bcrypt-hash in de database (password_hash in PHP);
+-- nooit als plain tekst.
+-- -----------------------------------------------------------------------------
+CREATE TABLE gebruiker (
+    id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    naam             VARCHAR(100) NOT NULL,
+    gebruikersnaam   VARCHAR(50)  NOT NULL,
+    wachtwoord       VARCHAR(255) NOT NULL COMMENT 'Hash (password_hash), nooit plain tekst',
+    rol              ENUM('beheerder', 'standhouder') NOT NULL DEFAULT 'standhouder',
+    verkoper_id      INT UNSIGNED      NULL COMMENT 'Koppeling standhouder -> verkoper, NULL bij beheerders',
+    is_actief        TINYINT(1)   NOT NULL DEFAULT 1,
+    opmerking        VARCHAR(255)     NULL,
+    datum_aangemaakt DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    datum_gewijzigd  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_gebruiker_gebruikersnaam (gebruikersnaam),
+    CONSTRAINT fk_gebruiker_verkoper
+        FOREIGN KEY (verkoper_id) REFERENCES verkoper (id)
+        ON DELETE SET NULL
+) ENGINE = InnoDB;

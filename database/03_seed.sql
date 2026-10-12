@@ -18,6 +18,7 @@ TRUNCATE TABLE prijs;
 TRUNCATE TABLE evenement;
 TRUNCATE TABLE bezoeker;
 TRUNCATE TABLE organisator;
+TRUNCATE TABLE gebruiker;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- -----------------------------------------------------------------------------
@@ -292,3 +293,31 @@ FROM (
 ) AS d
 INNER JOIN bezoeker b ON b.naam = d.bezoeker
 INNER JOIN prijs p    ON p.datum = d.datum AND p.tijdslot = d.tijdslot;
+
+-- -----------------------------------------------------------------------------
+-- Gebruikers (inlogaccounts)
+-- Wachtwoord van alle accounts is 'Sneakerness2026!' (bcrypt-hash).
+--   noah, ilse        -> beheerder (organisator)
+--   kickz, sole, crep  -> standhouder, gekoppeld aan de verkoper
+-- De koppeling loopt via een JOIN op verkoper.naam, zodat de accounts blijven
+-- werken wanneer de id's van de seed opnieuw worden toegekend.
+-- -----------------------------------------------------------------------------
+SET @wachtwoord = '$2y$12$i.//ypk.oswS04I2Iawt5.vmI.he170URmHWi1XM4qOTw85Jc7l/a';
+
+INSERT INTO gebruiker (naam, gebruikersnaam, wachtwoord, rol, verkoper_id, opmerking)
+SELECT
+    g.naam,
+    g.gebruikersnaam,
+    @wachtwoord,
+    g.rol,
+    v.id,
+    g.opmerking
+FROM (
+    SELECT 'Noah de Vries'    AS naam, 'noah' AS gebruikersnaam, 'beheerder'   AS rol, NULL              AS verkoper, 'Hoofdorganisator Rotterdam'      AS opmerking
+    UNION ALL SELECT 'Ilse Bakker',      'ilse',  'beheerder',   NULL,                'Verantwoordelijk voor standverhuur'
+    UNION ALL SELECT 'Samir el Idrissi', 'kickz', 'standhouder', 'Kickz Kollektiv',   'Standhouder Kickz Kollektiv'
+    UNION ALL SELECT 'Amber de Groot',   'sole',  'standhouder', 'Sole Sisters',      'Standhouder Sole Sisters'
+    UNION ALL SELECT 'Tim Verhoeven',    'crep',  'standhouder', 'Crep Care',         'Standhouder Crep Care'
+) AS g
+LEFT JOIN verkoper v
+    ON v.naam = g.verkoper;
