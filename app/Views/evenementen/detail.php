@@ -11,6 +11,8 @@ declare(strict_types=1);
  * @var list<\App\Entities\Verkoper>               $verkopers
  * @var array<string, list<\App\Entities\Verkoper>> $sideStands
  */
+
+use App\Core\Auth;
 ?>
 <section class="pagina-kop pagina-kop--event">
     <div class="container">
@@ -41,6 +43,9 @@ declare(strict_types=1);
         <div class="pagina-kop__acties">
             <a class="knop" href="<?= e(url('/tickets?event=' . $evenement->id)) ?>">Bekijk tickets</a>
             <a class="knop knop--leeg" href="<?= e(url('/stands?event=' . $evenement->id)) ?>">Stand huren</a>
+            <?php if (Auth::heeftRol('beheerder')) : ?>
+                <a class="knop knop--leeg" href="<?= e(url('/beheer/events/' . $evenement->id . '/wijzigen')) ?>">Event wijzigen</a>
+            <?php endif; ?>
         </div>
     </div>
 </section>

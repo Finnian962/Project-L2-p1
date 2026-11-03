@@ -9,6 +9,8 @@ declare(strict_types=1);
  * @var list<\App\Entities\Tijdslot>   $tijdsloten Optioneel: tijdsloten van dit event.
  */
 
+use App\Core\Auth;
+
 $tijdsloten = $tijdsloten ?? [];
 ?>
 <article class="kaart kaart--event">
@@ -76,6 +78,9 @@ $tijdsloten = $tijdsloten ?? [];
         <div class="kaart__acties">
             <a class="knop knop--klein" href="<?= e(url('/events/' . $evenement->id)) ?>">Bekijk event</a>
             <a class="knop knop--klein knop--leeg" href="<?= e(url('/tickets?event=' . $evenement->id)) ?>">Tickets</a>
+            <?php if (Auth::heeftRol('beheerder')) : ?>
+                <a class="knop knop--klein knop--leeg" href="<?= e(url('/beheer/events/' . $evenement->id . '/wijzigen')) ?>">Wijzigen</a>
+            <?php endif; ?>
         </div>
     </div>
 </article>
