@@ -58,6 +58,8 @@ $router->get('/verkopers', VerkoperController::class, 'index');
 $router->get('/verkopers/nieuw', VerkoperController::class, 'nieuw');
 $router->post('/verkopers/nieuw', VerkoperController::class, 'opslaan');
 $router->get('/verkopers/{id}/contact', PartnerController::class, 'contactpersonen');
+$router->get('/verkopers/{id}/contact/{contactId}/wijzigen', PartnerController::class, 'wijzigen');
+$router->post('/verkopers/{id}/contact/{contactId}/wijzigen', PartnerController::class, 'opslaanWijziging');
 $router->get('/info', HomeController::class, 'info');
 
 // Beheeromgeving van de organisator (alleen voor beheerders)
