@@ -59,13 +59,15 @@
      * wachten op de server niet nog een keer geklikt worden.
      */
     /**
-     * Client-side controle van het formulier Event toevoegen: lege verplichte
-     * velden en een ongeldige datum of een ongeldig aantal.
+     * Client-side controle van Event toevoegen en Event wijzigen: lege
+     * verplichte velden en een ongeldige datum of een ongeldig aantal.
      */
-    var eventFormulier = document.getElementById('event-toevoegen-formulier');
+    function koppelEventFormulier(formulier) {
+        if (!formulier) {
+            return;
+        }
 
-    if (eventFormulier) {
-        eventFormulier.addEventListener('submit', function (gebeurtenis) {
+        formulier.addEventListener('submit', function (gebeurtenis) {
             var velden = {
                 naam: 'Vul een naam in.',
                 datum: 'Vul een datum in.',
@@ -80,14 +82,13 @@
             var datumPatroon = /^\d{4}-\d{2}-\d{2}$/;
             var getalPatroon = /^\d+$/;
             var heeftVerplicht = false;
-            var heeftOngeldig = false;
 
             for (sleutel in velden) {
                 if (!Object.prototype.hasOwnProperty.call(velden, sleutel)) {
                     continue;
                 }
 
-                invoer = eventFormulier.querySelector('[name="' + sleutel + '"]');
+                invoer = formulier.querySelector('[name="' + sleutel + '"]');
                 waarde = invoer ? invoer.value.trim() : '';
 
                 if (waarde === '') {
@@ -96,13 +97,12 @@
                 }
             }
 
-            invoer = eventFormulier.querySelector('[name="datum"]');
+            invoer = formulier.querySelector('[name="datum"]');
             waarde = invoer ? invoer.value.trim() : '';
 
             if (waarde !== '') {
                 if (!datumPatroon.test(waarde) || isNaN(Date.parse(waarde + 'T00:00:00'))) {
                     fouten.datum = 'Vul een geldige datum in, bijvoorbeeld 2026-11-14.';
-                    heeftOngeldig = true;
                 } else {
                     var delen = waarde.split('-');
                     var geparsed = new Date(Number(delen[0]), Number(delen[1]) - 1, Number(delen[2]));
@@ -113,20 +113,18 @@
                         || geparsed.getDate() !== Number(delen[2])
                     ) {
                         fouten.datum = 'Vul een geldige datum in, bijvoorbeeld 2026-11-14.';
-                        heeftOngeldig = true;
                     }
                 }
             }
 
             ['aantal_tickets_per_tijdslot', 'beschikbare_stands'].forEach(function (naam) {
-                invoer = eventFormulier.querySelector('[name="' + naam + '"]');
+                invoer = formulier.querySelector('[name="' + naam + '"]');
                 waarde = invoer ? invoer.value.trim() : '';
 
                 if (waarde !== '' && !getalPatroon.test(waarde)) {
                     fouten[naam] = naam === 'beschikbare_stands'
                         ? 'Vul een geldig aantal stands in, bijvoorbeeld 30.'
                         : 'Vul een geldig aantal tickets in, bijvoorbeeld 250.';
-                    heeftOngeldig = true;
                 }
             });
 
@@ -135,13 +133,94 @@
             }
 
             gebeurtenis.preventDefault();
-            toonFormulierFouten(eventFormulier, fouten, heeftVerplicht
-                ? 'Vul de gemarkeerde verplichte velden in.'
-                : 'Controleer de gemarkeerde velden. Er is een ongeldige waarde ingevuld.');
+            toonFormulierFouten(
+                formulier,
+                fouten,
+                heeftVerplicht
+                    ? 'Vul de gemarkeerde verplichte velden in.'
+                    : 'Controleer de gemarkeerde velden. Er is een ongeldige waarde ingevuld.',
+                'Het event is niet opgeslagen'
+            );
         });
     }
 
-    function toonFormulierFouten(formulier, fouten, kopTekst) {
+    koppelEventFormulier(document.getElementById('event-toevoegen-formulier'));
+    koppelEventFormulier(document.getElementById('event-wijzigen-formulier'));
+
+    /**
+     * Client-side controle van Contactpersoon wijzigen: lege verplichte velden
+     * en een ongeldig e-mailadres of telefoonnummer.
+     */
+    var contactFormulier = document.getElementById('contactpersoon-wijzigen-formulier');
+
+    if (contactFormulier) {
+        contactFormulier.addEventListener('submit', function (gebeurtenis) {
+            var velden = {
+                naam: 'Vul een naam in.',
+                telefoonnummer: 'Vul een telefoonnummer in.',
+                emailadres: 'Vul een e-mailadres in.'
+            };
+            var fouten = {};
+            var sleutel;
+            var invoer;
+            var waarde;
+            var cijfers;
+            var heeftVerplicht = false;
+            var heeftOngeldig = false;
+            var emailPatroon = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            var telefoonPatroon = /^[0-9+\s\-()]+$/;
+
+            for (sleutel in velden) {
+                if (!Object.prototype.hasOwnProperty.call(velden, sleutel)) {
+                    continue;
+                }
+
+                invoer = contactFormulier.querySelector('[name="' + sleutel + '"]');
+                waarde = invoer ? invoer.value.trim() : '';
+
+                if (waarde === '') {
+                    fouten[sleutel] = velden[sleutel];
+                    heeftVerplicht = true;
+                }
+            }
+
+            invoer = contactFormulier.querySelector('[name="telefoonnummer"]');
+            waarde = invoer ? invoer.value.trim() : '';
+
+            if (waarde !== '') {
+                cijfers = waarde.replace(/\D+/g, '');
+
+                if (!telefoonPatroon.test(waarde) || cijfers.length < 8 || cijfers.length > 15) {
+                    fouten.telefoonnummer = 'Vul een geldig telefoonnummer in, bijvoorbeeld +31 6 12345678.';
+                    heeftOngeldig = true;
+                }
+            }
+
+            invoer = contactFormulier.querySelector('[name="emailadres"]');
+            waarde = invoer ? invoer.value.trim() : '';
+
+            if (waarde !== '' && !emailPatroon.test(waarde)) {
+                fouten.emailadres = 'Vul een geldig e-mailadres in, bijvoorbeeld naam@voorbeeld.nl.';
+                heeftOngeldig = true;
+            }
+
+            if (Object.keys(fouten).length === 0) {
+                return;
+            }
+
+            gebeurtenis.preventDefault();
+            toonFormulierFouten(
+                contactFormulier,
+                fouten,
+                heeftVerplicht
+                    ? 'Vul de gemarkeerde verplichte velden in.'
+                    : 'Controleer de gemarkeerde velden. Er is een ongeldige waarde ingevuld.',
+                'De contactpersoon is niet opgeslagen'
+            );
+        });
+    }
+
+    function toonFormulierFouten(formulier, fouten, kopTekst, titelTekst) {
         var bestaande = formulier.parentNode.querySelector('.melding--fout');
         var melding;
         var sleutel;
@@ -158,7 +237,7 @@
         melding.setAttribute('role', 'alert');
         melding.innerHTML = '<span class="melding__icoon" aria-hidden="true">×</span>'
             + '<div class="melding__inhoud">'
-            + '<p class="melding__kop">Het event is niet opgeslagen</p>'
+            + '<p class="melding__kop">' + (titelTekst || 'Het formulier is niet opgeslagen') + '</p>'
             + '<p class="melding__tekst">' + kopTekst + '</p>'
             + '</div>';
         formulier.parentNode.insertBefore(melding, formulier);
