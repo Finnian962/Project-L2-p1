@@ -19,6 +19,8 @@ DROP PROCEDURE IF EXISTS sp_verkoper_overzicht;
 DROP PROCEDURE IF EXISTS sp_partner_overzicht;
 DROP PROCEDURE IF EXISTS sp_sidestand_overzicht;
 DROP PROCEDURE IF EXISTS sp_contactpersoon_per_verkoper;
+DROP PROCEDURE IF EXISTS sp_contactpersoon_details;
+DROP PROCEDURE IF EXISTS sp_contactpersoon_wijzigen;
 DROP PROCEDURE IF EXISTS sp_ticket_toevoegen;
 DROP PROCEDURE IF EXISTS sp_tijdslot_toevoegen;
 DROP PROCEDURE IF EXISTS sp_bestelling_plaatsen;
@@ -363,6 +365,7 @@ BEGIN
         c.naam,
         c.telefoonnummer,
         c.emailadres,
+        v.id   AS verkoper_id,
         v.naam AS verkoper_naam
     FROM contactpersoon c
     INNER JOIN contact_per_verkoper cpv
@@ -374,6 +377,81 @@ BEGIN
     WHERE c.is_actief = 1
       AND v.id = p_verkoper_id
     ORDER BY c.naam ASC;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_contactpersoon_details
+-- Eén actieve contactpersoon met de verkoper erbij, voor het wijzigformulier.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_contactpersoon_details(IN p_contactpersoon_id INT UNSIGNED)
+BEGIN
+    SELECT
+        c.id,
+        c.naam,
+        c.telefoonnummer,
+        c.emailadres,
+        v.id   AS verkoper_id,
+        v.naam AS verkoper_naam
+    FROM contactpersoon c
+    INNER JOIN contact_per_verkoper cpv
+        ON cpv.contactpersoon_id = c.id
+       AND cpv.is_actief = 1
+    INNER JOIN verkoper v
+        ON v.id = cpv.verkoper_id
+       AND v.is_actief = 1
+    WHERE c.is_actief = 1
+      AND c.id = p_contactpersoon_id
+    LIMIT 1;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_contactpersoon_wijzigen
+-- Werkt naam, telefoonnummer en e-mailadres van een bestaande contactpersoon bij.
+-- Geeft de bijgewerkte rij terug, of nul rijen wanneer de persoon niet bestaat.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_contactpersoon_wijzigen(
+    IN p_contactpersoon_id INT UNSIGNED,
+    IN p_naam              VARCHAR(100),
+    IN p_telefoonnummer    VARCHAR(25),
+    IN p_emailadres        VARCHAR(150)
+)
+BEGIN
+    IF p_naam IS NULL OR TRIM(p_naam) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Naam is verplicht.';
+    END IF;
+
+    IF p_telefoonnummer IS NULL OR TRIM(p_telefoonnummer) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Telefoonnummer is verplicht.';
+    END IF;
+
+    IF p_emailadres IS NULL OR TRIM(p_emailadres) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'E-mailadres is verplicht.';
+    END IF;
+
+    UPDATE contactpersoon
+    SET naam           = TRIM(p_naam),
+        telefoonnummer = TRIM(p_telefoonnummer),
+        emailadres     = TRIM(p_emailadres)
+    WHERE id = p_contactpersoon_id
+      AND is_actief = 1;
+
+    SELECT
+        c.id,
+        c.naam,
+        c.telefoonnummer,
+        c.emailadres,
+        v.id   AS verkoper_id,
+        v.naam AS verkoper_naam
+    FROM contactpersoon c
+    INNER JOIN contact_per_verkoper cpv
+        ON cpv.contactpersoon_id = c.id
+       AND cpv.is_actief = 1
+    INNER JOIN verkoper v
+        ON v.id = cpv.verkoper_id
+       AND v.is_actief = 1
+    WHERE c.id = p_contactpersoon_id
+      AND c.is_actief = 1
+    LIMIT 1;
 END$$
 
 -- -----------------------------------------------------------------------------
