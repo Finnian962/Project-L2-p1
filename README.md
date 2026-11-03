@@ -81,6 +81,27 @@ php database/demo_unhappy.php uit event    # opslaan faalt nu (503)
 php database/demo_unhappy.php aan event    # weer normaal
 ```
 
+## Event wijzigen (beheerder)
+
+Route: `/beheer/events/{id}/wijzigen` (knop **Wijzigen** op de eventkaart en
+**Event wijzigen** op de detailpagina, alleen zichtbaar als beheerder),
+opgeslagen via `sp_evenement_wijzigen`.
+
+- **Happy flow**: naam, datum, locatie, tickets per tijdslot of stands van
+  een bestaand event aanpassen → knop **Opslaan** → melding *"Het event is
+  succesvol gewijzigd."* → doorverwijzing naar `/events`, waar de nieuwe
+  gegevens in de lijst staan.
+- **Unhappy flow (database plat)**: de database is niet bereikbaar of faalt
+  bij opslaan → melding *"Onze excuses, de database is tijdelijk niet
+  bereikbaar. We zijn ermee bezig."* (HTTP 503), ingevulde gegevens blijven
+  staan, niets opgeslagen.
+
+```bash
+php database/test-event-wijzigen.php
+php database/demo_unhappy.php uit event-wijzigen   # wijzigen faalt nu (503)
+php database/demo_unhappy.php aan event-wijzigen   # weer normaal
+```
+
 ## Stand toevoegen (beheerder)
 
 Route: `/beheer/stands/toevoegen` (knop **Stand toevoegen** op
