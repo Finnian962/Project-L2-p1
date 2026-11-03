@@ -67,6 +67,8 @@ $router->get('/beheer', BeheerController::class, 'index');
 // Event toevoegen: alleen voor ingelogde beheerders (happy + unhappy flows)
 $router->get('/beheer/events/toevoegen', EvenementController::class, 'nieuw');
 $router->post('/beheer/events/toevoegen', EvenementController::class, 'opslaan');
+$router->get('/beheer/events/{id}/wijzigen', EvenementController::class, 'wijzigen');
+$router->post('/beheer/events/{id}/wijzigen', EvenementController::class, 'opslaanWijziging');
 $router->get('/beheer/stands', BeheerController::class, 'stands');
 $router->get('/beheer/stands/toevoegen', BeheerController::class, 'standToevoegen');
 $router->post('/beheer/stands/toevoegen', BeheerController::class, 'standOpslaan');
