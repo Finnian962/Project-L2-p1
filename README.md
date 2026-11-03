@@ -156,6 +156,26 @@ Unhappy flows op deze pagina:
 | Zoekopdracht zonder resultaat | "Er zijn geen gevonden voor "…"." |
 | Database niet bereikbaar | "De gegevens konden niet worden opgehaald." (HTTP 503) |
 
+## Contactpersoon wijzigen (beheerder)
+
+Route: `/verkopers/{id}/contact/{contactId}/wijzigen` (knop **Wijzigen** op
+de contactlijst van een verkoper, alleen zichtbaar als beheerder), opgeslagen
+via `sp_contactpersoon_wijzigen`.
+
+- **Happy flow**: naam, telefoonnummer of e-mailadres van een bestaande
+  contactpersoon aanpassen → knop **Opslaan** → melding *"De contactpersoon is
+  succesvol gewijzigd."* → doorverwijzing naar de contactlijst, waar de nieuwe
+  gegevens staan.
+- **Unhappy flow (verplicht)**: een verplicht veld leegmaken → melding
+  *"Vul de gemarkeerde verplichte velden in."* (HTTP 422), niets opgeslagen.
+- **Unhappy flow (ongeldig)**: bijvoorbeeld e-mailadres `geen-email` of
+  telefoonnummer `abc` → melding *"Controleer de gemarkeerde velden. Er is een
+  ongeldige waarde ingevuld."* (HTTP 422), niets opgeslagen.
+
+```bash
+php database/test-contactpersoon-wijzigen.php
+```
+
 ## Verkoper toevoegen (medewerker)
 
 Deel van de user story *"Als medewerker wil ik een nieuwe verkoper kunnen
