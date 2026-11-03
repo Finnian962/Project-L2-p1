@@ -12,6 +12,7 @@ declare(strict_types=1);
  * @var list<\App\Entities\Evenement>            $evenementen
  * @var array<int, list<\App\Entities\Tijdslot>> $tijdslotenPerEvent
  * @var string                                   $zoekterm
+ * @var string|null                              $succesKop
  * @var string|null                              $succesmelding
  * @var string|null                              $melding
  * @var string|null                              $foutmelding
@@ -19,6 +20,7 @@ declare(strict_types=1);
 
 use App\Core\Auth;
 
+$succesKop = $succesKop ?? null;
 $succesmelding = $succesmelding ?? null;
 ?>
 <section class="pagina-kop">
@@ -58,10 +60,10 @@ $succesmelding = $succesmelding ?? null;
         <?php if ($succesmelding !== null) : ?>
             <?= partial('melding', [
                 'soort'      => 'info',
-                'kop'        => 'Event toegevoegd',
+                'kop'        => $succesKop ?? 'Event opgeslagen',
                 'tekst'      => $succesmelding,
-                'actieUrl'   => url('/beheer/events/toevoegen'),
-                'actieLabel' => 'Nog een event toevoegen',
+                'actieUrl'   => ($succesKop ?? '') === 'Event toegevoegd' ? url('/beheer/events/toevoegen') : null,
+                'actieLabel' => ($succesKop ?? '') === 'Event toegevoegd' ? 'Nog een event toevoegen' : null,
             ]) ?>
         <?php endif; ?>
 
