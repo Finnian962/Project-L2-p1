@@ -10,6 +10,7 @@ use App\Core\DatabaseException;
 use App\Core\Logger;
 use App\Core\Request;
 use App\Core\Session;
+use App\Entities\Evenement;
 use App\Models\EvenementModel;
 use App\Models\StandModel;
 use App\Models\TijdslotModel;
@@ -28,6 +29,12 @@ use App\Models\VerkoperModel;
  *  - unhappy flow : ontbrekende velden (422);
  *  - unhappy flow : ongeldige gegevens, bijvoorbeeld een ongeldige datum (422);
  *  - unhappy flow : database plat of niet bereikbaar (503).
+ *
+ * Event wijzigen (alleen beheerder):
+ *  - happy flow   : bestaande gegevens wijzigen -> opslaan en tonen in het overzicht;
+ *  - unhappy flow : verplicht veld leeg (422);
+ *  - unhappy flow : ongeldige gegevens, bijvoorbeeld een ongeldige datum (422);
+ *  - unhappy flow : database plat of niet bereikbaar (503).
  */
 final class EvenementController extends Controller
 {
@@ -36,6 +43,9 @@ final class EvenementController extends Controller
 
     /** Melding na een succesvol opgeslagen event. */
     private const MELDING_TOEGEVOEGD = 'Het event is succesvol toegevoegd.';
+
+    /** Melding na een succesvol gewijzigd event. */
+    private const MELDING_GEWIJZIGD = 'Het event is succesvol gewijzigd.';
 
     /** Melding wanneer verplichte velden niet zijn ingevuld. */
     private const MELDING_VERPLICHT = 'Vul de gemarkeerde verplichte velden in.';
@@ -54,6 +64,9 @@ final class EvenementController extends Controller
      * of een eventlink die niet (meer) bestaat.
      */
     private const MELDING_STORING = DatabaseException::GEBRUIKERSMELDING;
+
+    /** Melding wanneer de database platligt tijdens het wijzigen. */
+    private const MELDING_DATABASE_PLAT = 'Onze excuses, de database is tijdelijk niet bereikbaar. We zijn ermee bezig.';
 
     /**
      * GET /events
@@ -88,7 +101,8 @@ final class EvenementController extends Controller
                 'evenementen'        => $evenementen,
                 'tijdslotenPerEvent' => $tijdslotenPerEvent,
                 'zoekterm'           => $zoekterm,
-                'succesmelding'      => $request->queryAlsGetal('toegevoegd') > 0 ? self::MELDING_TOEGEVOEGD : null,
+                'succesKop'          => self::succesKop($request),
+                'succesmelding'      => self::succesmelding($request),
                 'melding'            => $melding,
                 'foutmelding'        => null,
             ]);
@@ -102,6 +116,7 @@ final class EvenementController extends Controller
                 'evenementen'        => [],
                 'tijdslotenPerEvent' => [],
                 'zoekterm'           => $zoekterm,
+                'succesKop'          => null,
                 'succesmelding'      => null,
                 'melding'            => null,
                 'foutmelding'        => self::MELDING_STORING,
@@ -220,6 +235,154 @@ final class EvenementController extends Controller
     }
 
     /**
+     * GET /beheer/events/{id}/wijzigen
+     * Formulier om als beheerder een bestaand event te wijzigen.
+     */
+    public function wijzigen(Request $request, string $id): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        if (!ctype_digit($id)) {
+            Logger::warning('Ongeldig event-id opgevraagd bij wijzigen', ['id' => $id]);
+            $this->toonNietGevonden();
+
+            return;
+        }
+
+        try {
+            $evenement = (new EvenementModel())->haalDetails((int) $id);
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Wijzigformulier event kon niet worden geladen');
+            $this->toonWijzigFormulier(
+                (int) $id,
+                self::leegFormulier(),
+                self::MELDING_DATABASE_PLAT,
+                [],
+                503,
+                'Onze excuses'
+            );
+
+            return;
+        }
+
+        if ($evenement === null) {
+            Logger::warning('Event niet gevonden bij wijzigen', ['id' => $id]);
+            $this->toonNietGevonden();
+
+            return;
+        }
+
+        $this->toonWijzigFormulier($evenement->id, self::formulierVanEvenement($evenement), null, []);
+    }
+
+    /**
+     * POST /beheer/events/{id}/wijzigen
+     * Slaat de gewijzigde eventgegevens op.
+     *
+     * Ontbrekende of ongeldige velden -> 422, niets wegschrijven.
+     * Happy flow stuurt door naar het eventoverzicht (Post/Redirect/Get).
+     */
+    public function opslaanWijziging(Request $request, string $id): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        if (!ctype_digit($id)) {
+            $this->toonNietGevonden();
+
+            return;
+        }
+
+        $evenementId = (int) $id;
+        $waarden = [
+            'naam'                        => $request->post('naam'),
+            'datum'                       => $request->post('datum'),
+            'locatie'                     => $request->post('locatie'),
+            'aantal_tickets_per_tijdslot' => $request->post('aantal_tickets_per_tijdslot'),
+            'beschikbare_stands'          => $request->post('beschikbare_stands'),
+            'opmerking'                   => $request->post('opmerking'),
+        ];
+
+        $fouten = self::controleerInvoer($waarden);
+
+        if ($fouten !== []) {
+            $verplichtOntbreekt = $waarden['naam'] === ''
+                || $waarden['datum'] === ''
+                || $waarden['locatie'] === ''
+                || $waarden['aantal_tickets_per_tijdslot'] === ''
+                || $waarden['beschikbare_stands'] === '';
+
+            Logger::warning('Event niet gewijzigd: de invoer is ongeldig', [
+                'evenement' => $evenementId,
+                'velden'    => array_keys($fouten),
+            ]);
+
+            $this->toonWijzigFormulier(
+                $evenementId,
+                $waarden,
+                $verplichtOntbreekt ? self::MELDING_VERPLICHT : self::MELDING_INVOER,
+                $fouten,
+                422
+            );
+
+            return;
+        }
+
+        try {
+            $bestaand = (new EvenementModel())->haalDetails($evenementId);
+
+            if ($bestaand === null) {
+                $this->toonNietGevonden();
+
+                return;
+            }
+
+            $gewijzigdId = (new EvenementModel())->wijzig(
+                $evenementId,
+                $waarden['naam'],
+                $waarden['datum'],
+                $waarden['locatie'],
+                (int) $waarden['aantal_tickets_per_tijdslot'],
+                (int) $waarden['beschikbare_stands'],
+                $waarden['opmerking'] === '' ? null : $waarden['opmerking']
+            );
+
+            if ($gewijzigdId === 0) {
+                $this->toonNietGevonden();
+
+                return;
+            }
+
+            Logger::info('Event gewijzigd', [
+                'evenement'     => $evenementId,
+                'naam'          => $waarden['naam'],
+                'gewijzigdDoor' => Auth::gebruikersnaam(),
+            ]);
+
+            Session::melding(self::MELDING_GEWIJZIGD, 'info', 'Event gewijzigd');
+
+            $this->redirect('/events?gewijzigd=' . $evenementId);
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Event kon niet worden gewijzigd', [
+                'evenement' => $evenementId,
+                'naam'      => $waarden['naam'],
+            ]);
+
+            $this->toonWijzigFormulier(
+                $evenementId,
+                $waarden,
+                self::MELDING_DATABASE_PLAT,
+                [],
+                503,
+                'Onze excuses'
+            );
+        }
+    }
+
+    /**
      * GET /events/{id}
      * Detailpagina van één event met tijdsloten, stands en verkopers.
      */
@@ -290,6 +453,86 @@ final class EvenementController extends Controller
             'foutKop'     => $foutKop,
             'fouten'      => $fouten,
         ], $httpStatus);
+    }
+
+    /**
+     * Toont het wijzigformulier, met eventuele fouten en de vorige invoer.
+     *
+     * @param array<string, string> $waarden
+     * @param array<string, string> $fouten
+     */
+    private function toonWijzigFormulier(
+        int $evenementId,
+        array $waarden,
+        ?string $foutmelding,
+        array $fouten,
+        int $httpStatus = 200,
+        string $foutKop = 'Het event is niet opgeslagen'
+    ): void {
+        $this->toon('beheer/event-wijzigen', [
+            'titel'       => 'Event wijzigen',
+            'pad'         => '/beheer',
+            'evenementId' => $evenementId,
+            'waarden'     => $waarden,
+            'foutmelding' => $foutmelding,
+            'foutKop'     => $foutKop,
+            'fouten'      => $fouten,
+        ], $httpStatus);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function formulierVanEvenement(Evenement $evenement): array
+    {
+        return [
+            'naam'                        => $evenement->naam,
+            'datum'                       => self::datumVoorFormulier($evenement->datum),
+            'locatie'                     => $evenement->locatie,
+            'aantal_tickets_per_tijdslot' => (string) $evenement->aantalTicketsPerTijdslot,
+            'beschikbare_stands'          => (string) $evenement->beschikbareStands,
+            'opmerking'                   => $evenement->opmerking ?? '',
+        ];
+    }
+
+    /** Zet een datum uit de database om naar jjjj-mm-dd voor het formulier. */
+    private static function datumVoorFormulier(string $datum): string
+    {
+        $geparsed = \DateTimeImmutable::createFromFormat('Y-m-d', $datum);
+
+        if ($geparsed instanceof \DateTimeImmutable) {
+            return $geparsed->format('Y-m-d');
+        }
+
+        $tijdstempel = strtotime($datum);
+
+        return $tijdstempel === false ? $datum : date('Y-m-d', $tijdstempel);
+    }
+
+    private static function succesmelding(Request $request): ?string
+    {
+        if ($request->queryAlsGetal('toegevoegd') > 0) {
+            return self::MELDING_TOEGEVOEGD;
+        }
+
+        if ($request->queryAlsGetal('gewijzigd') > 0) {
+            return self::MELDING_GEWIJZIGD;
+        }
+
+        return null;
+    }
+
+    private static function succesKop(Request $request): ?string
+    {
+        if ($request->queryAlsGetal('toegevoegd') > 0) {
+            return 'Event toegevoegd';
+        }
+
+        if ($request->queryAlsGetal('gewijzigd') > 0) {
+            return 'Event gewijzigd';
+        }
+
+        return null;
     }
 
     /**
