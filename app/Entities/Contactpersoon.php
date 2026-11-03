@@ -14,6 +14,7 @@ final class Contactpersoon
         public readonly string $naam,
         public readonly string $telefoonnummer,
         public readonly string $emailadres,
+        public readonly int $verkoperId,
         public readonly string $verkoperNaam
     ) {
     }
@@ -30,6 +31,7 @@ final class Contactpersoon
             (string) ($rij['naam'] ?? ''),
             (string) ($rij['telefoonnummer'] ?? ''),
             (string) ($rij['emailadres'] ?? ''),
+            (int) ($rij['verkoper_id'] ?? 0),
             (string) ($rij['verkoper_naam'] ?? '')
         );
     }
