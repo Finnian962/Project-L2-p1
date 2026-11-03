@@ -39,6 +39,12 @@ declare(strict_types=1);
  *                                                      (unhappy flow event
  *                                                      toevoegen)
  *   php database/demo_unhappy.php aan event        -> opslaan werkt weer normaal
+ *
+ *   php database/demo_unhappy.php uit event-wijzigen -> wijzigen van een event
+ *                                                      geeft een databasefout
+ *                                                      (unhappy flow: database plat)
+ *   php database/demo_unhappy.php aan event-wijzigen -> wijzigen werkt weer
+ *                                                      normaal (happy flow)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -51,13 +57,13 @@ $wat     = strtolower($argv[2] ?? 'events');
 $evenementId = isset($argv[3]) ? (int) $argv[3] : 0;
 
 if (!in_array($keuze, ['aan', 'uit'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event|event-wijzigen] [event-id]' . PHP_EOL;
 
     exit(1);
 }
 
-if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands', 'event'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
+if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands', 'event', 'event-wijzigen'], true)) {
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event|event-wijzigen] [event-id]' . PHP_EOL;
 
     exit(1);
 }
@@ -134,6 +140,29 @@ try {
         echo $isActief === 1
             ? 'Het opslaan van een event werkt weer normaal (happy flow).' . PHP_EOL
             : 'Elk opslaan van een event geeft nu een databasefout (unhappy flow).' . PHP_EOL;
+
+        exit(0);
+    }
+
+    if ($wat === 'event-wijzigen') {
+        // Unhappy flow event wijzigen: een trigger laat elke UPDATE op
+        // evenement falen, zodat sp_evenement_wijzigen niets wegschrijft
+        // en de controller de excuusmelding toont. Happy flow: trigger weg.
+        if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_evenement_wijzigen');
+        } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_evenement_wijzigen BEFORE UPDATE ON evenement "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: database plat forceren bij event wijzigen'"
+            );
+        }
+
+        Logger::info('Foutmodus event-wijzigen gewijzigd via demoscript', ['is_actief' => $isActief]);
+
+        echo $isActief === 1
+            ? 'Het wijzigen van een event werkt weer normaal (happy flow).' . PHP_EOL
+            : 'Elke wijziging van een event geeft nu: de database is niet bereikbaar (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }
