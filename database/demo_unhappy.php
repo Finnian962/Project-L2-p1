@@ -40,12 +40,12 @@ declare(strict_types=1);
  *                                                      toevoegen)
  *   php database/demo_unhappy.php aan event        -> opslaan werkt weer normaal
  *
- *   php database/demo_unhappy.php uit bestelling   -> tickets wijzigen en
+ *   php database/demo_unhappy.php uit bestelling   -> bestellen, wijzigen en
  *                                                      annuleren geven een
  *                                                      databasefout (unhappy
  *                                                      flow)
- *   php database/demo_unhappy.php aan bestelling   -> beide werken weer normaal
- *                                                      (happy flow)
+ *   php database/demo_unhappy.php aan bestelling   -> alle drie werken weer
+ *                                                      normaal (happy flow)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -146,15 +146,22 @@ try {
     }
 
     if ($wat === 'bestelling') {
-        // Unhappy flow tickets wijzigen en annuleren: een trigger laat elke
-        // UPDATE op de tabel ticket falen, zodat sp_bestelling_wijzigen en
-        // sp_bestelling_annuleren teruggedraaid worden en de controller de
-        // 503-melding toont. De rest van de site blijft gewoon werken, dus
-        // een bezoeker die tussendoor de pagina opent kan doorgaan. Herstel
-        // gooit de trigger weer weg.
+        // Unhappy flow tickets bestellen, wijzigen en annuleren: twee triggers
+        // laten elke INSERT en UPDATE op de tabel ticket falen, waardoor
+        // sp_bestelling_plaatsen, sp_bestelling_wijzigen en
+        // sp_bestelling_annuleren teruggedraaid worden en de controllers de
+        // 503-melding tonen. De rest van de site blijft gewoon werken, dus een
+        // bezoeker die tussendoor de pagina opent kan doorgaan. Herstel gooit
+        // de triggers weer weg.
         if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_bestellen');
             Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_bestelling');
         } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_bestellen BEFORE INSERT ON ticket "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
             Database::verbinding()->exec(
                 "CREATE TRIGGER trg_demo_fout_bestelling BEFORE UPDATE ON ticket "
                 . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
@@ -165,8 +172,8 @@ try {
         Logger::info('Foutmodus bestelling gewijzigd via demoscript', ['is_actief' => $isActief]);
 
         echo $isActief === 1
-            ? 'Tickets wijzigen en annuleren werken weer normaal (happy flow).' . PHP_EOL
-            : 'Tickets wijzigen en annuleren geven nu een databasefout (unhappy flow).' . PHP_EOL;
+            ? 'Bestellen, wijzigen en annuleren werken weer normaal (happy flow).' . PHP_EOL
+            : 'Bestellen, wijzigen en annuleren geven nu een databasefout (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }
