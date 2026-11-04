@@ -47,6 +47,11 @@ staan, en de standhouder krijgt bovendien het menu-item *Reserveringen*.
 - Niet-ingelogde bezoekers van een afgeschermde pagina worden doorgestuurd naar
   `/inloggen`; ingelogde gebruikers met de verkeerde rol krijgen "Geen toegang"
   (403) te zien.
+- **Alle routes onder `/tickets` vragen ook een login** (elke rol mag ze
+  gebruiken): het ticketoverzicht, bestellen, betalen, wijzigen, annuleren,
+  boeken en toevoegen. Niet-ingelogde bezoekers worden doorgestuurd naar
+  `/inloggen` met de melding *"Je moet ingelogd zijn om deze pagina te
+  bekijken."*
 
 Scenarios:
 
@@ -232,6 +237,9 @@ php database/test-verkoper-toevoegen.php
 Route: `/tickets` — kies een editie in het dropdown-veld en klik op
 **"Toon tijdsloten"**.
 
+Alleen voor ingelogde gebruikers: wie niet ingelogd is wordt doorgestuurd naar
+`/inloggen`.
+
 **Happy flow:** per dag een blok (`dag-kop`) met daarin per tijdslot de
 starttijd, de prijs en het aantal beschikbare tickets ten opzichte van het
 totaal (`X van Y tickets beschikbaar`). De gegevens komen uit
@@ -337,6 +345,10 @@ De bestelflow uit de user story *"Als bezoeker wil ik een ticket voor een
 evenement kunnen kopen"*, bereikbaar vanaf de knop **Bestellen** per tijdslot
 (op `/tickets` én op de evenementpagina `/events/{id}`).
 
+Log vooraf in (bijvoorbeeld `noah` / `Sneakerness2026!`): alle pagina's onder
+`/tickets` — dus ook deze bestelflow — zijn alleen voor ingelogde gebruikers
+bereikbaar. Zonder login kom je op `/inloggen` terecht.
+
 ### 1. Bestellen — `/tickets/bestellen`
 
 De knop opent het bestelformulier met `?event={id}&tijdslot={prijsId}`, met dat
@@ -383,15 +395,19 @@ opgeslagen; de stored procedure voert dezelfde controles nog een keer uit.
 ```
 # ongeldige invoer: naam leeg laten staan (422)
 # mislukte betaling: op het betaalscherm op "Betaling mislukt" klikken
-# database niet bereikbaar (503):
-perl -pi -e "s/3306/3307/ if /'port'/" config/config.php
+# databasefout (503), zonder de site plat te leggen:
+php database/demo_unhappy.php uit bestelling
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/tickets/betalen \
   -d "evenement_id=2&prijs_id=6&aantal=1&naam=Test&emailadres=t@x.nl&betaling=geslaagd"
-git restore config/config.php        # niet vergeten
+php database/demo_unhappy.php aan bestelling      # weer normaal
 ```
 
+De demoschakelaar gebruikt een trigger op `ticket`: alleen bestellen,
+wijzigen en annuleren falen, de overige pagina's blijven werken en
+`config/config.php` wordt nooit aangeraakt.
+
 De hele flow is ook geautomatiseerd te controleren (draait de server op
-`127.0.0.1:8000` en ruimt zichzelf op):
+`127.0.0.1:8000`, logt zelf in als `noah` en ruimt zichzelf op):
 
 ```
 php database/test-bestelling.php
@@ -404,6 +420,9 @@ aanpassen als de plannen veranderen, en de bestelling annuleren als je toch
 niet kunt komen. De bezoeker heeft geen account: **e-mailadres +
 ticketnummer** zijn samen de sleutel om de bestelling op te halen. De knoppen
 staan bovenaan `/tickets`.
+
+Ook deze pagina's vragen een login (elke rol): zonder sessie word je naar
+`/inloggen` gestuurd.
 
 | | |
 | --- | --- |
@@ -472,13 +491,14 @@ Unhappy flows op beide pagina's:
 | Aantal nul of niet-numeriek | "Vul een geldig aantal in (minimaal 1)." | 422 |
 | Meer tickets dan beschikbaar | "Er zijn nog maar X tickets beschikbaar voor dit tijdslot." | 422 |
 | Termijn verstreken | "Je bestelling kan niet meer worden gewijzigd." / "…geannuleerd." | 422 |
+| Niet ingelogd | doorverwijzing naar `/inloggen` ("Je moet ingelogd zijn om deze pagina te bekijken.") | 302 |
 | Databasefout | "Je bestelling kon niet worden gewijzigd/geannuleerd. Probeer het later opnieuw." | 503 |
 
 Bij elke fout blijft de bestelling ongewijzigd en staan de ingevulde waarden
 nog in het formulier.
 
 De hele flow is geautomatiseerd te controleren (draait de server op
-`127.0.0.1:8000` en ruimt zichzelf op):
+`127.0.0.1:8000`, logt zelf in als `noah` en ruimt zichzelf op):
 
 ```
 php database/test-wijzigen-annuleren.php
@@ -489,9 +509,9 @@ de termijnmeldingen een editie die al begonnen is (in de seed is dat
 *Sneakerness Zürich 2026*).
 
 De 503-flow is ook los te demonstreren, met de demoschakelaar uit dit project.
-Die gebruikt een trigger op `ticket`: alleen wijzigen en annuleren falen, de
-overige pagina's blijven gewoon werken en `config/config.php` wordt nooit
-aangeraakt.
+Die gebruikt triggers op `ticket`: alleen bestellen, wijzigen en annuleren
+falen, de overige pagina's blijven gewoon werken en `config/config.php` wordt
+nooit aangeraakt.
 
 ```
 php database/demo_unhappy.php uit bestelling   # wijzigen/annuleren geven een databasefout
