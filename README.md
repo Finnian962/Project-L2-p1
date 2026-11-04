@@ -397,6 +397,89 @@ De hele flow is ook geautomatiseerd te controleren (draait de server op
 php database/test-bestelling.php
 ```
 
+## Tickets wijzigen en annuleren (bezoeker)
+
+Twee user stories bovenop de bestaande bestelling: het aantal tickets
+aanpassen als de plannen veranderen, en de bestelling annuleren als je toch
+niet kunt komen. De bezoeker heeft geen account: **e-mailadres +
+ticketnummer** zijn samen de sleutel om de bestelling op te halen. De knoppen
+staan bovenaan `/tickets`.
+
+| | |
+| --- | --- |
+| `GET /tickets/wijzigen` | zoekformulier; met `?email=&ticket=` de bestelling met het wijzigformulier |
+| `POST /tickets/wijzigen` | slaat het nieuwe aantal tickets op |
+| `GET /tickets/annuleren` | zoekformulier; met `?email=&ticket=` de bestelling met de bevestigingsknop |
+| `POST /tickets/annuleren` | annuleert de bestelling |
+
+Beide handelingen mogen **tot de start van het evenement** (`evenement.datum`);
+de opslag loopt via `sp_bestelling_ophalen`, `sp_bestelling_wijzigen` en
+`sp_bestelling_annuleren`. Wijzigen rekent de capaciteit van het tijdslot na
+(eigen tickets tellen mee, want die komen vrij); annuleren zet `ticket.is_actief`
+op 0, waardoor de tickets ongeldig zijn en ze in alle beschikbaarheids- en
+omzettellingen verdwijnen.
+
+### Scenario: tickets succesvol wijzigen
+
+1. Open `/tickets/wijzigen`, vul e-mailadres en ticketnummer in en klik op
+   **Zoek bestelling**.
+2. Pas het aantal aan en klik op **Wijziging opslaan** → 303 (PRG) naar de
+   bevestiging met de melding **"Je bestelling is gewijzigd."**, de nieuwe
+   bestelgegevens en het prijsverschil (*"Het prijsverschil van € 39,50 wordt
+   bijbetaald."* / *"…wordt terugbetaald."*).
+3. De wijzigingsmail gaat naar de technische log (`Wijzigingsmail verstuurd`),
+   zoals de bevestiging van een bestelling dat ook doet.
+
+### Scenario: wijzigen is niet meer mogelijk
+
+De termijn is verstreken (het evenement is al begonnen) of de bestelling is al
+geannuleerd → de bestelling blijft ongewijzigd en de pagina toont
+**"Je bestelling kan niet meer worden gewijzigd."** (HTTP 422), zonder
+wijzigformulier.
+
+### Scenario: tickets succesvol annuleren
+
+1. Open `/tickets/annuleren`, vul e-mailadres en ticketnummer in en klik op
+   **Zoek bestelling**.
+2. Klik op **Ja, annuleer mijn bestelling** → 303 (PRG) naar de bevestiging met
+   de melding **"De annulering is gelukt."**, de status *Geannuleerd* en
+   **"Terugbetaald"** met het bedrag (alleen getoond; er is geen betaalprovider
+   in dit project).
+3. De annuleringsbevestiging gaat naar de technische log
+   (`Annuleringsmail verstuurd`).
+
+### Scenario: annuleren is niet meer mogelijk
+
+De termijn is verstreken → de tickets blijven geldig en de pagina toont
+**"Je bestelling kan niet meer worden geannuleerd."** (HTTP 422). Een tweede
+annulering geeft "Deze bestelling is al geannuleerd." (422).
+
+Unhappy flows op beide pagina's:
+
+| Situatie | Melding | Status |
+| --- | --- | --- |
+| E-mailadres leeg of ongeldig | "Vul je e-mailadres in." / "Vul een geldig e-mailadres in, …" | 422 |
+| Ticketnummer leeg of ongeldig | "Vul een geldig ticketnummer in, bijvoorbeeld 123." | 422 |
+| Bestelling niet gevonden (verkeerd e-mailadres) | "De bestelling is niet gevonden. Controleer je e-mailadres en ticketnummer." | 404 |
+| Aantal nul of niet-numeriek | "Vul een geldig aantal in (minimaal 1)." | 422 |
+| Meer tickets dan beschikbaar | "Er zijn nog maar X tickets beschikbaar voor dit tijdslot." | 422 |
+| Termijn verstreken | "Je bestelling kan niet meer worden gewijzigd." / "…geannuleerd." | 422 |
+| Database niet bereikbaar | "Je bestelling kon niet worden gewijzigd/geannuleerd. Probeer het later opnieuw." | 503 |
+
+Bij elke fout blijft de bestelling ongewijzigd en staan de ingevulde waarden
+nog in het formulier.
+
+De hele flow is geautomatiseerd te controleren (draait de server op
+`127.0.0.1:8000` en ruimt zichzelf op):
+
+```
+php database/test-wijzigen-annuleren.php
+```
+
+Voor de happy flow heb je een editie met een datum in de toekomst nodig, voor
+de termijnmeldingen een editie die al begonnen is (in de seed is dat
+*Sneakerness Zürich 2026*).
+
 ## Structuur
 
 - `app/` — MVC code (Controllers, Models, Views, Core)
