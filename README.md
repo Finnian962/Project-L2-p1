@@ -433,7 +433,8 @@ hoeft dus niet te gokken naar het ticketnummer.
    bestelgegevens en het prijsverschil (*"Het prijsverschil van € 39,50 wordt
    bijbetaald."* / *"…wordt terugbetaald."*).
 3. De wijzigingsmail gaat naar de technische log (`Wijzigingsmail verstuurd`),
-   zoals de bevestiging van een bestelling dat ook doet.
+   zoals de bevestiging van een bestelling dat ook doet, en de bevestiging
+   toont de volledige mail onder **Verstuurde mail** (aan, onderwerp en tekst).
 
 ### Scenario: wijzigen is niet meer mogelijk
 
@@ -451,7 +452,8 @@ wijzigformulier.
    **"Terugbetaald"** met het bedrag (alleen getoond; er is geen betaalprovider
    in dit project).
 3. De annuleringsbevestiging gaat naar de technische log
-   (`Annuleringsmail verstuurd`).
+   (`Annuleringsmail verstuurd`) en de bevestiging toont de volledige mail
+   onder **Verstuurde mail**.
 
 ### Scenario: annuleren is niet meer mogelijk
 
@@ -470,7 +472,7 @@ Unhappy flows op beide pagina's:
 | Aantal nul of niet-numeriek | "Vul een geldig aantal in (minimaal 1)." | 422 |
 | Meer tickets dan beschikbaar | "Er zijn nog maar X tickets beschikbaar voor dit tijdslot." | 422 |
 | Termijn verstreken | "Je bestelling kan niet meer worden gewijzigd." / "…geannuleerd." | 422 |
-| Database niet bereikbaar | "Je bestelling kon niet worden gewijzigd/geannuleerd. Probeer het later opnieuw." | 503 |
+| Databasefout | "Je bestelling kon niet worden gewijzigd/geannuleerd. Probeer het later opnieuw." | 503 |
 
 Bij elke fout blijft de bestelling ongewijzigd en staan de ingevulde waarden
 nog in het formulier.
@@ -485,6 +487,16 @@ php database/test-wijzigen-annuleren.php
 Voor de happy flow heb je een editie met een datum in de toekomst nodig, voor
 de termijnmeldingen een editie die al begonnen is (in de seed is dat
 *Sneakerness Zürich 2026*).
+
+De 503-flow is ook los te demonstreren, met de demoschakelaar uit dit project.
+Die gebruikt een trigger op `ticket`: alleen wijzigen en annuleren falen, de
+overige pagina's blijven gewoon werken en `config/config.php` wordt nooit
+aangeraakt.
+
+```
+php database/demo_unhappy.php uit bestelling   # wijzigen/annuleren geven een databasefout
+php database/demo_unhappy.php aan bestelling   # beide werken weer normaal
+```
 
 ## Structuur
 
