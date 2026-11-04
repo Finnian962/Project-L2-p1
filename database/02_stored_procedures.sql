@@ -23,6 +23,9 @@ DROP PROCEDURE IF EXISTS sp_ticket_toevoegen;
 DROP PROCEDURE IF EXISTS sp_tijdslot_toevoegen;
 DROP PROCEDURE IF EXISTS sp_bestelling_plaatsen;
 DROP PROCEDURE IF EXISTS sp_bestelling_bevesting;
+DROP PROCEDURE IF EXISTS sp_bestelling_ophalen;
+DROP PROCEDURE IF EXISTS sp_bestelling_wijzigen;
+DROP PROCEDURE IF EXISTS sp_bestelling_annuleren;
 DROP PROCEDURE IF EXISTS sp_rapport_ticketverkoop;
 DROP PROCEDURE IF EXISTS sp_rapport_standverhuur;
 DROP PROCEDURE IF EXISTS sp_gebruiker_inloggen;
@@ -713,6 +716,280 @@ BEGIN
     INNER JOIN bezoeker b
         ON b.id = t.bezoeker_id
     WHERE t.id = p_ticket_id;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_ophalen
+-- Haalt een geplaatste bestelling op met e-mailadres én ticketnummer
+-- (user stories "Als bezoeker wil ik na aankoop mijn tickets kunnen wijzigen"
+-- en "Als bezoeker wil ik mijn tickets kunnen annuleren").
+--
+-- De bezoeker heeft geen account: e-mailadres + ticketnummer zijn samen de
+-- sleutel. Een verkeerde combinatie levert geen rij op, zodat niemand anders
+-- bij andermans bestelling komt.
+--
+-- Retourneert ook:
+--   - is_actief      0 wanneer de bestelling al geannuleerd is;
+--   - mag_wijzigen   1 zolang het evenement nog niet begonnen is (de
+--                    wijzigings- en annuleringstermijn loopt tot de start).
+-- Een geannuleerde bestelling komt wél terug, zodat de bevestigingspagina de
+-- status en het terugbetaalde bedrag kan tonen.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_ophalen(
+    IN p_emailadres   VARCHAR(150),
+    IN p_ticketnummer INT UNSIGNED
+)
+BEGIN
+    SELECT
+        t.id                          AS ticketnummer,
+        b.naam                        AS bezoeker_naam,
+        b.emailadres,
+        t.is_actief,
+        e.id                          AS evenement_id,
+        e.naam                        AS evenement_naam,
+        e.datum                       AS start_datum,
+        p.id                          AS prijs_id,
+        p.datum,
+        p.tijdslot,
+        p.tarief,
+        t.aantal_tickets              AS aantal,
+        (p.tarief * t.aantal_tickets) AS totaal,
+        IF(CURDATE() < e.datum, 1, 0) AS mag_wijzigen
+    FROM ticket t
+    INNER JOIN prijs p
+        ON p.id = t.prijs_id
+    INNER JOIN evenement e
+        ON e.id = t.evenement_id
+    INNER JOIN bezoeker b
+        ON b.id = t.bezoeker_id
+    WHERE t.id = p_ticketnummer
+      AND b.emailadres = TRIM(p_emailadres);
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_wijzigen
+-- Wijzigt het aantal tickets van een geplaatste bestelling (user story "Als
+-- bezoeker wil ik na aankoop mijn tickets kunnen wijzigen").
+--
+-- De bezoeker geeft e-mailadres, ticketnummer en het nieuwe aantal mee. De
+-- procedure controleert zelf of de bestelling bestaat en op het opgegeven
+-- e-mailadres staat, of de termijn nog loopt (het evenement is nog niet
+-- begonnen) en of er nog genoeg capaciteit overblijft. De eigen tickets tellen
+-- daarbij niet mee, want die komen weer vrij.
+--
+-- Alles gebeurt in één transactie met de rij van het ticket vastgepakt
+-- (FOR UPDATE), zodat een gelijktijdige wijziging of annulering nooit tot meer
+-- verkochte tickets dan de capaciteit leidt. Geeft het oude en het nieuwe
+-- aantal plus het prijsverschil terug, zodat de bevestiging dat kan tonen.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_wijzigen(
+    IN p_ticketnummer INT UNSIGNED,
+    IN p_emailadres   VARCHAR(150),
+    IN p_nieuw_aantal INT UNSIGNED
+)
+BEGIN
+    DECLARE v_is_actief    TINYINT       DEFAULT NULL;
+    DECLARE v_emailadres   VARCHAR(150)  DEFAULT NULL;
+    DECLARE v_start        DATE          DEFAULT NULL;
+    DECLARE v_capaciteit   INT           DEFAULT 0;
+    DECLARE v_verkocht     INT           DEFAULT 0;
+    DECLARE v_oud_aantal   INT           DEFAULT 0;
+    DECLARE v_prijs_id     INT UNSIGNED  DEFAULT NULL;
+    DECLARE v_event_naam   VARCHAR(150)  DEFAULT NULL;
+    DECLARE v_datum        DATE          DEFAULT NULL;
+    DECLARE v_tijdslot     TIME          DEFAULT NULL;
+    DECLARE v_tarief       DECIMAL(6, 2) DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_nieuw_aantal IS NULL OR p_nieuw_aantal < 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Vul een geldig aantal in (minimaal 1).';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT
+        t.is_actief,
+        t.aantal_tickets,
+        t.prijs_id,
+        b.emailadres,
+        e.datum,
+        e.naam,
+        e.aantal_tickets_per_tijdslot,
+        p.tarief,
+        p.datum,
+        p.tijdslot
+    INTO
+        v_is_actief,
+        v_oud_aantal,
+        v_prijs_id,
+        v_emailadres,
+        v_start,
+        v_event_naam,
+        v_capaciteit,
+        v_tarief,
+        v_datum,
+        v_tijdslot
+    FROM ticket t
+    INNER JOIN prijs p
+        ON p.id = t.prijs_id
+    INNER JOIN evenement e
+        ON e.id = t.evenement_id
+    INNER JOIN bezoeker b
+        ON b.id = t.bezoeker_id
+    WHERE t.id = p_ticketnummer
+    FOR UPDATE;
+
+    IF v_is_actief IS NULL
+        OR v_emailadres IS NULL
+        OR TRIM(v_emailadres) <> TRIM(COALESCE(p_emailadres, '')) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De bestelling is niet gevonden. Controleer je e-mailadres en ticketnummer.';
+    END IF;
+
+    -- Termijn: wijzigen kan tot de start van het evenement. Een geannuleerde
+    -- bestelling kan natuurlijk ook niet meer gewijzigd worden.
+    IF v_is_actief = 0 OR CURDATE() >= v_start THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Je bestelling kan niet meer worden gewijzigd.';
+    END IF;
+
+    -- De eigen tickets tellen niet mee: die komen bij deze wijziging vrij.
+    SELECT COALESCE(SUM(t.aantal_tickets), 0)
+      INTO v_verkocht
+    FROM ticket t
+    WHERE t.prijs_id = v_prijs_id
+      AND t.is_actief = 1
+      AND t.id <> p_ticketnummer;
+
+    IF p_nieuw_aantal > (v_capaciteit - v_verkocht) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Er zijn niet genoeg tickets beschikbaar voor dit tijdslot.';
+    END IF;
+
+    UPDATE ticket
+    SET aantal_tickets = p_nieuw_aantal
+    WHERE id = p_ticketnummer;
+
+    COMMIT;
+
+    SELECT
+        p_ticketnummer                                  AS ticketnummer,
+        v_oud_aantal                                    AS oud_aantal,
+        p_nieuw_aantal                                  AS nieuw_aantal,
+        v_tarief                                        AS tarief,
+        (v_tarief * v_oud_aantal)                       AS oud_totaal,
+        (v_tarief * p_nieuw_aantal)                     AS nieuw_totaal,
+        (v_tarief * (p_nieuw_aantal - v_oud_aantal))    AS prijsverschil,
+        v_event_naam                                    AS evenement_naam,
+        v_datum                                         AS datum,
+        v_tijdslot                                      AS tijdslot,
+        v_emailadres                                    AS emailadres;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_annuleren
+-- Annuleert een geplaatste bestelling en maakt de tickets ongeldig (user
+-- story "Als bezoeker wil ik mijn tickets kunnen annuleren").
+--
+-- De bestelling wordt met is_actief = 0 soft delete: de rij blijft bewaard
+-- voor de bevestiging, maar telt in alle beschikbaarheids- en omzettellingen
+-- niet meer mee, waardoor de tickets direct ongeldig zijn en het bedrag als
+-- verkocht verdwijnt.
+--
+-- Net als bij wijzigen controleert de procedure of de bestelling bestaat, op
+-- het opgegeven e-mailadres staat en of de annuleringstermijn nog loopt
+-- (het evenement is nog niet begonnen). Geeft het aantal, het tarief en het
+-- terugbetaalde bedrag terug.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_annuleren(
+    IN p_ticketnummer INT UNSIGNED,
+    IN p_emailadres   VARCHAR(150)
+)
+BEGIN
+    DECLARE v_is_actief    TINYINT       DEFAULT NULL;
+    DECLARE v_emailadres   VARCHAR(150)  DEFAULT NULL;
+    DECLARE v_start        DATE          DEFAULT NULL;
+    DECLARE v_aantal       INT           DEFAULT 0;
+    DECLARE v_event_naam   VARCHAR(150)  DEFAULT NULL;
+    DECLARE v_datum        DATE          DEFAULT NULL;
+    DECLARE v_tijdslot     TIME          DEFAULT NULL;
+    DECLARE v_tarief       DECIMAL(6, 2) DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT
+        t.is_actief,
+        t.aantal_tickets,
+        b.emailadres,
+        e.datum,
+        e.naam,
+        p.tarief,
+        p.datum,
+        p.tijdslot
+    INTO
+        v_is_actief,
+        v_aantal,
+        v_emailadres,
+        v_start,
+        v_event_naam,
+        v_tarief,
+        v_datum,
+        v_tijdslot
+    FROM ticket t
+    INNER JOIN prijs p
+        ON p.id = t.prijs_id
+    INNER JOIN evenement e
+        ON e.id = t.evenement_id
+    INNER JOIN bezoeker b
+        ON b.id = t.bezoeker_id
+    WHERE t.id = p_ticketnummer
+    FOR UPDATE;
+
+    IF v_is_actief IS NULL
+        OR v_emailadres IS NULL
+        OR TRIM(v_emailadres) <> TRIM(COALESCE(p_emailadres, '')) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'De bestelling is niet gevonden. Controleer je e-mailadres en ticketnummer.';
+    END IF;
+
+    IF v_is_actief = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Deze bestelling is al geannuleerd.';
+    END IF;
+
+    -- Termijn: annuleren kan tot de start van het evenement.
+    IF CURDATE() >= v_start THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Je bestelling kan niet meer worden geannuleerd.';
+    END IF;
+
+    UPDATE ticket
+    SET is_actief = 0
+    WHERE id = p_ticketnummer;
+
+    COMMIT;
+
+    SELECT
+        p_ticketnummer      AS ticketnummer,
+        v_aantal            AS aantal,
+        v_tarief            AS tarief,
+        (v_tarief * v_aantal) AS bedrag,
+        v_event_naam        AS evenement_naam,
+        v_datum             AS datum,
+        v_tijdslot          AS tijdslot,
+        v_emailadres        AS emailadres;
 END$$
 
 -- -----------------------------------------------------------------------------
