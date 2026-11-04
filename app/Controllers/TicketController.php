@@ -16,6 +16,11 @@ use App\Models\TijdslotModel;
  * Beheert de ticketpagina's: het tijdslotenoverzicht voor bezoekers en de twee
  * schrijfacties voor een medewerker.
  *
+ * Alle acties van deze controller beginnen met `vereistRol()` zonder rollen:
+ * wie niet ingelogd is wordt doorgestuurd naar /inloggen met de melding "Je
+ * moet ingelogd zijn om deze pagina te bekijken." Elke ingelogde rol (beheerder
+ * én standhouder) mag de ticketpagina's gebruiken.
+ *
  *  - /tickets/toevoegen  maakt een nieuw tijdslot aan. Dat tijdslot komt op
  *    de ticketpagina (/tickets) te staan, met de beschikbaarheid van de editie,
  *    zodat er meteen tickets voor verkocht kunnen worden.
@@ -43,6 +48,10 @@ final class TicketController extends Controller
      */
     public function index(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $gekozenEvenementId = $request->queryAlsGetal('event');
 
         // Terugkoppeling na een bestelling of een toegevoegd/gebekt ticket.
@@ -131,6 +140,10 @@ final class TicketController extends Controller
      */
     public function toevoegen(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'evenement_id' => $request->queryAlsGetal('event'),
             'datum'        => '',
@@ -170,6 +183,10 @@ final class TicketController extends Controller
      */
     public function opslaan(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'evenement_id' => (int) $request->post('evenement_id'),
             'datum'        => trim($request->post('datum')),
@@ -238,6 +255,10 @@ final class TicketController extends Controller
      */
     public function boeken(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = $this->standaardBoekVelden(
             $request->queryAlsGetal('event'),
             $request->queryAlsGetal('tijdslot')
@@ -276,6 +297,10 @@ final class TicketController extends Controller
      */
     public function boekOp(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'evenement_id' => (int) $request->post('evenement_id'),
             'prijs_id'     => (int) $request->post('prijs_id'),
@@ -341,6 +366,10 @@ final class TicketController extends Controller
      */
     public function bestellen(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = $this->standaardBestelVelden(
             $request->queryAlsGetal('event'),
             $request->queryAlsGetal('tijdslot')
@@ -374,6 +403,10 @@ final class TicketController extends Controller
      */
     public function controleerBestelling(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = $this->bestelVeldenUitPost($request);
 
         // Standaardwaarden voor het geval het inlezen van de gegevens faalt.
@@ -415,6 +448,10 @@ final class TicketController extends Controller
      */
     public function betalen(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = $this->bestelVeldenUitPost($request);
 
         // Standaardwaarden voor het geval het inlezen van de gegevens faalt.
@@ -530,6 +567,10 @@ final class TicketController extends Controller
      */
     public function wijzigen(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'emailadres'   => $request->query('email'),
             'ticketnummer' => $request->queryAlsGetal('ticket'),
@@ -628,6 +669,10 @@ final class TicketController extends Controller
      */
     public function wijzigBestelling(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'emailadres'   => $request->post('emailadres'),
             'ticketnummer' => $request->postAlsGetal('ticketnummer'),
@@ -749,6 +794,10 @@ final class TicketController extends Controller
      */
     public function annuleren(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'emailadres'   => $request->query('email'),
             'ticketnummer' => $request->queryAlsGetal('ticket'),
@@ -830,6 +879,10 @@ final class TicketController extends Controller
      */
     public function annuleerBestelling(Request $request): void
     {
+        if (!$this->vereistRol()) {
+            return;
+        }
+
         $velden = [
             'emailadres'   => $request->post('emailadres'),
             'ticketnummer' => $request->postAlsGetal('ticketnummer'),
