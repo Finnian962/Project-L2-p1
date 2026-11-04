@@ -102,4 +102,62 @@ final class TicketModel extends Model
     {
         return $this->roepProcedureAanVoorEenRij('sp_bestelling_bevesting', [$ticketId]);
     }
+
+    /**
+     * Haalt een bestelling op met e-mailadres én ticketnummer.
+     *
+     * De bezoeker heeft geen account: die twee gegevens zijn samen de sleutel.
+     * Een verkeerde combinatie geeft null terug, zodat niemand anders bij
+     * andermans bestelling komt.
+     *
+     * De rij bevat onder meer `is_actief` (0 wanneer de bestelling al
+     * geannuleerd is) en `mag_wijzigen` (1 zolang het evenement nog niet
+     * begonnen is).
+     *
+     * @return array<string, mixed>|null Null wanneer de bestelling niet bestaat.
+     *
+     * @throws DatabaseException Wanneer de gegevens niet opgehaald kunnen worden.
+     */
+    public function haalBestelling(string $emailadres, int $ticketnummer): ?array
+    {
+        return $this->roepProcedureAanVoorEenRij('sp_bestelling_ophalen', [
+            $emailadres,
+            $ticketnummer,
+        ]);
+    }
+
+    /**
+     * Wijzigt het aantal tickets van een bestelling en geeft het oude en het
+     * nieuwe aantal plus het prijsverschil terug.
+     *
+     * @return array<string, mixed> Onder meer oud_aantal, nieuw_aantal,
+     *                              prijsverschil, tarief en emailadres.
+     *
+     * @throws DatabaseException Wanneer de wijziging niet opgeslagen kan worden.
+     */
+    public function wijzigAantal(int $ticketnummer, string $emailadres, int $nieuwAantal): array
+    {
+        return $this->roepProcedureAanVoorEenRij('sp_bestelling_wijzigen', [
+            $ticketnummer,
+            $emailadres,
+            $nieuwAantal,
+        ]) ?? [];
+    }
+
+    /**
+     * Annuleert een bestelling: de tickets worden ongeldig (is_actief = 0) en
+     * het bedrag komt vrij.
+     *
+     * @return array<string, mixed> Onder meer aantal, tarief en het
+     *                              terugbetaalde bedrag.
+     *
+     * @throws DatabaseException Wanneer de annulering niet opgeslagen kan worden.
+     */
+    public function annuleerBestelling(int $ticketnummer, string $emailadres): array
+    {
+        return $this->roepProcedureAanVoorEenRij('sp_bestelling_annuleren', [
+            $ticketnummer,
+            $emailadres,
+        ]) ?? [];
+    }
 }
