@@ -22,6 +22,10 @@ declare(strict_types=1);
  * Het script heeft de developmentserver nodig:
  *     php -S 127.0.0.1:8000 server.php
  *
+ * De ticketpagina's zijn alleen voor ingelogde gebruikers bereikbaar: de test
+ * logt zelf in als beheerder (noah) en controleert dat een bezoeker zonder
+ * login wordt doorgestuurd naar /inloggen.
+ *
  * Alles wat deze test aanmaakt wordt na afloop weer opgeruimd.
  *
  * Gebruik: php database/test-wijzigen-annuleren.php
@@ -33,6 +37,12 @@ use App\Core\Database;
 use App\Models\TijdslotModel;
 
 const BASIS_URL = 'http://127.0.0.1:8000';
+
+/**
+ * Sessiebestand waarin de test de inlogcookie bewaart: de ticketpagina's zijn
+ * voortaan alleen voor ingelogde gebruikers bereikbaar.
+ */
+define('COOKIE_BESTAND', sys_get_temp_dir() . '/sneakerness-test-cookies.txt');
 
 /** @var list<string> $fouten */
 $fouten = [];
@@ -60,6 +70,9 @@ register_shutdown_function(static function () use (&$aangemaakteTickets, $eigenT
         // Opruimen is een extraatje: een fout hieronder mag de uitkomst niet
         // overschrijven.
     }
+
+    // Ook de inlogcookie van de test ruimen we op.
+    @unlink(COOKIE_BESTAND);
 });
 
 /**
@@ -75,6 +88,8 @@ function verzoek(string $methode, string $pad, array $velden = []): array
         CURLOPT_TIMEOUT        => 10,
         CURLOPT_HEADER         => true,
         CURLOPT_CUSTOMREQUEST  => strtoupper($methode),
+        CURLOPT_COOKIEJAR      => COOKIE_BESTAND,
+        CURLOPT_COOKIEFILE     => COOKIE_BESTAND,
     ];
 
     if (strtoupper($methode) !== 'GET' && $velden !== []) {
@@ -107,6 +122,27 @@ function verzoek(string $methode, string $pad, array $velden = []): array
         'locatie' => $locatie,
         'body'    => substr($antwoord, $koppen),
     ];
+}
+
+/**
+ * Logt in als beheerder, zodat de ticketpagina's bereikbaar zijn.
+ *
+ * Stopt het script wanneer inloggen niet lukt: zonder sessie kan er geen enkele
+ * ticketcontrole uitgevoerd worden.
+ */
+function logIn(): void
+{
+    $antwoord = verzoek('POST', '/inloggen', [
+        'gebruikersnaam' => 'noah',
+        'wachtwoord'     => 'Sneakerness2026!',
+    ]);
+
+    if ($antwoord['status'] !== 302) {
+        echo 'FOUT: inloggen als noah lukte niet (HTTP ' . $antwoord['status'] . '). '
+            . 'Start de server met: php -S 127.0.0.1:8000 server.php' . PHP_EOL;
+
+        exit(1);
+    }
 }
 
 /**
@@ -178,13 +214,28 @@ try {
     exit(1);
 }
 
-$testReeks = verzoek('GET', '/tickets');
+$testReeks = verzoek('GET', '/');
 
 if ($testReeks['status'] !== 200) {
     echo 'FOUT: de developmentserver draait niet op ' . BASIS_URL
         . PHP_EOL . 'Start hem met: php -S 127.0.0.1:8000 server.php' . PHP_EOL;
     exit(1);
 }
+
+// Zonder login zijn de ticketpagina's niet bereikbaar: /tickets en
+// /tickets/wijzigen stuurt door naar /inloggen. Daarna logt de test in, zodat
+// de wijzig- en annuleerflow verder kan.
+$afgemeld = verzoek('GET', '/tickets');
+controleer($afgemeld['status'] === 302, 'zonder login geeft /tickets een doorverwijzing');
+controleer(
+    str_contains($afgemeld['locatie'], '/inloggen'),
+    'de doorverwijzing gaat naar de inlogpagina'
+);
+
+logIn();
+
+$ingelogd = verzoek('GET', '/tickets');
+controleer($ingelogd['status'] === 200, 'na het inloggen is /tickets bereikbaar');
 
 /**
  * Zoekt een editie met een tijdslot met genoeg ruimte.
