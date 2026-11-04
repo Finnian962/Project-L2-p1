@@ -586,14 +586,7 @@ final class TicketController extends Controller
 
         if ($gegevens['bestelling'] === null) {
             // Unhappy flow: e-mailadres en ticketnummer horen niet bij elkaar.
-            Logger::warning('Bestelling niet gevonden bij wijzigen', [
-                'ticketnummer' => $velden['ticketnummer'],
-                'emailadres'   => $velden['emailadres'],
-            ]);
-
-            $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
-                . 'Controleer je e-mailadres en ticketnummer.';
-            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->zoekMelding($gegevens, $velden, 'wijzigen');
             $this->toon('tickets/wijzigen', $gegevens, 404);
 
             return;
@@ -664,14 +657,7 @@ final class TicketController extends Controller
             );
 
             if ($bestelling === null) {
-                Logger::warning('Bestelling niet gevonden bij wijzigen', [
-                    'ticketnummer' => $velden['ticketnummer'],
-                    'emailadres'   => $velden['emailadres'],
-                ]);
-
-                $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
-                    . 'Controleer je e-mailadres en ticketnummer.';
-                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->zoekMelding($gegevens, $velden, 'wijzigen');
                 $this->toon('tickets/wijzigen', $gegevens, 404);
 
                 return;
@@ -806,14 +792,7 @@ final class TicketController extends Controller
         }
 
         if ($bestelling === null) {
-            Logger::warning('Bestelling niet gevonden bij annuleren', [
-                'ticketnummer' => $velden['ticketnummer'],
-                'emailadres'   => $velden['emailadres'],
-            ]);
-
-            $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
-                . 'Controleer je e-mailadres en ticketnummer.';
-            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->zoekMelding($gegevens, $velden, 'annuleren');
             $this->toon('tickets/annuleren', $gegevens, 404);
 
             return;
@@ -875,14 +854,7 @@ final class TicketController extends Controller
             );
 
             if ($bestelling === null) {
-                Logger::warning('Bestelling niet gevonden bij annuleren', [
-                    'ticketnummer' => $velden['ticketnummer'],
-                    'emailadres'   => $velden['emailadres'],
-                ]);
-
-                $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
-                    . 'Controleer je e-mailadres en ticketnummer.';
-                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->zoekMelding($gegevens, $velden, 'annuleren');
                 $this->toon('tickets/annuleren', $gegevens, 404);
 
                 return;
@@ -955,12 +927,52 @@ final class TicketController extends Controller
         $gegevens = $this->basisGegevens($titel, $pad, $velden);
 
         $gegevens['bestelling']        = null;
+        $gegevens['bestellingLijst']   = [];
         $gegevens['actieMogelijk']     = false;
         $gegevens['maximaal']          = null;
         $gegevens['oudAantal']         = null;
         $gegevens['prijsverschilTekst'] = null;
 
         return $gegevens;
+    }
+
+    /**
+     * De melding wanneer e-mailadres en ticketnummer niet bij elkaar horen.
+     *
+     * Wanneer het e-mailadres wél bestellingen heeft, komt er ook een lijst
+     * met daarin het juiste ticketnummer, zodat de bezoeker de bestelling met
+     * één klik kan openen in plaats van te moeten gokken.
+     *
+     * @param array<string, mixed> $gegevens
+     * @param array<string, mixed> $velden
+     */
+    private function zoekMelding(array &$gegevens, array $velden, string $context): void
+    {
+        Logger::warning('Bestelling niet gevonden bij ' . $context, [
+            'ticketnummer' => $velden['ticketnummer'],
+            'emailadres'   => $velden['emailadres'],
+        ]);
+
+        $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
+            . 'Controleer je e-mailadres en ticketnummer.';
+        $gegevens['foutSoort'] = 'waarschuwing';
+
+        try {
+            $gegevens['bestellingLijst'] = (new TicketModel())
+                ->haalBestellingenVanEmail((string) $velden['emailadres']);
+        } catch (DatabaseException $fout) {
+            // Lukt het niet om de lijst op te halen, dan blijft de gewone
+            // melding staan; de bezoeker kan het opnieuw proberen.
+            Logger::exception($fout, 'Bestellingenlijst kon niet worden opgehaald');
+            $gegevens['bestellingLijst'] = [];
+
+            return;
+        }
+
+        if ($gegevens['bestellingLijst'] !== []) {
+            $gegevens['foutmelding'] .= ' Op dit e-mailadres staan de volgende '
+                . 'bestellingen: kies er een om te openen.';
+        }
     }
 
     /**
