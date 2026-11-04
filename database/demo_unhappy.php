@@ -39,6 +39,13 @@ declare(strict_types=1);
  *                                                      (unhappy flow event
  *                                                      toevoegen)
  *   php database/demo_unhappy.php aan event        -> opslaan werkt weer normaal
+ *
+ *   php database/demo_unhappy.php uit bestelling   -> tickets wijzigen en
+ *                                                      annuleren geven een
+ *                                                      databasefout (unhappy
+ *                                                      flow)
+ *   php database/demo_unhappy.php aan bestelling   -> beide werken weer normaal
+ *                                                      (happy flow)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -51,13 +58,13 @@ $wat     = strtolower($argv[2] ?? 'events');
 $evenementId = isset($argv[3]) ? (int) $argv[3] : 0;
 
 if (!in_array($keuze, ['aan', 'uit'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event|bestelling] [event-id]' . PHP_EOL;
 
     exit(1);
 }
 
-if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands', 'event'], true)) {
-    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event] [event-id]' . PHP_EOL;
+if (!in_array($wat, ['events', 'tijdsloten', 'verkoper', 'stands', 'event', 'bestelling'], true)) {
+    echo 'Gebruik: php database/demo_unhappy.php [aan|uit] [events|tijdsloten|verkoper|stands|event|bestelling] [event-id]' . PHP_EOL;
 
     exit(1);
 }
@@ -134,6 +141,32 @@ try {
         echo $isActief === 1
             ? 'Het opslaan van een event werkt weer normaal (happy flow).' . PHP_EOL
             : 'Elk opslaan van een event geeft nu een databasefout (unhappy flow).' . PHP_EOL;
+
+        exit(0);
+    }
+
+    if ($wat === 'bestelling') {
+        // Unhappy flow tickets wijzigen en annuleren: een trigger laat elke
+        // UPDATE op de tabel ticket falen, zodat sp_bestelling_wijzigen en
+        // sp_bestelling_annuleren teruggedraaid worden en de controller de
+        // 503-melding toont. De rest van de site blijft gewoon werken, dus
+        // een bezoeker die tussendoor de pagina opent kan doorgaan. Herstel
+        // gooit de trigger weer weg.
+        if ($isActief === 1) {
+            Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_bestelling');
+        } else {
+            Database::verbinding()->exec(
+                "CREATE TRIGGER trg_demo_fout_bestelling BEFORE UPDATE ON ticket "
+                . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+                . "SET MESSAGE_TEXT = 'Demo: databasefout forceren voor de sprintreview'"
+            );
+        }
+
+        Logger::info('Foutmodus bestelling gewijzigd via demoscript', ['is_actief' => $isActief]);
+
+        echo $isActief === 1
+            ? 'Tickets wijzigen en annuleren werken weer normaal (happy flow).' . PHP_EOL
+            : 'Tickets wijzigen en annuleren geven nu een databasefout (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }
