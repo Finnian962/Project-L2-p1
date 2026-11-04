@@ -1228,6 +1228,54 @@ textarea.formulier__invoer {
     margin-top: 0.9rem;
 }
 
+/* Inhoud van een verstuurde e-mail, zoals die op de bevestiging staat. */
+.mail {
+    margin: 1.2rem 0;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--kleur-rand);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.mail__kop {
+    margin: 0 0 0.7rem;
+    color: var(--kleur-tekst-zacht);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mail__koppen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 2rem;
+    margin: 0 0 0.9rem;
+    padding: 0 0 0.9rem;
+    border-bottom: 1px solid var(--kleur-rand);
+    font-size: 0.9rem;
+}
+
+.mail__koppen div {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.mail__koppen dt {
+    color: var(--kleur-tekst-zacht);
+}
+
+.mail__koppen dd {
+    margin: 0;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.mail__tekst p {
+    margin: 0;
+    line-height: 1.65;
+}
+
 /* Tabellen */
 
 .tabel-omhulsel {
