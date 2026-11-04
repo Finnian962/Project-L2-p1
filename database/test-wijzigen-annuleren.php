@@ -325,6 +325,28 @@ controleer(
     str_contains($antwoord['body'], 'De bestelling is niet gevonden.'),
     'de bezoeker ziet dat de bestelling niet gevonden is'
 );
+controleer(
+    str_contains($antwoord['body'], 'Bestellingen op dit e-mailadres') === false,
+    'een onbekend e-mailadres levert geen lijst met bestellingen op'
+);
+
+// Een bekend e-mailadres met een verkeerd ticketnummer: de bezoeker krijgt
+// de bestellingen van dat adres te zien, zodat hij het juiste nummer kan
+// kiezen in plaats van te moeten gokken.
+$antwoord = verzoek('GET', '/tickets/wijzigen?email=' . rawurlencode($eigenTestEmail) . '&ticket=999999');
+controleer($antwoord['status'] === 404, 'een bekend e-mailadres met een verkeerd nummer geeft 404');
+controleer(
+    str_contains($antwoord['body'], 'Op dit e-mailadres staan de volgende bestellingen'),
+    'de bezoeker ziet dat er wél bestellingen op dat adres staan'
+);
+controleer(
+    str_contains($antwoord['body'], 'Ticket #' . $ticketnummer),
+    'de lijst toont het juiste ticketnummer'
+);
+controleer(
+    str_contains($antwoord['body'], 'ticket=' . $ticketnummer . '"'),
+    'elke regel in de lijst opent de bestelling met één klik'
+);
 
 $antwoord = verzoek('POST', '/tickets/wijzigen', [
     'emailadres'   => $eigenTestEmail,

@@ -413,11 +413,16 @@ staan bovenaan `/tickets`.
 | `POST /tickets/annuleren` | annuleert de bestelling |
 
 Beide handelingen mogen **tot de start van het evenement** (`evenement.datum`);
-de opslag loopt via `sp_bestelling_ophalen`, `sp_bestelling_wijzigen` en
-`sp_bestelling_annuleren`. Wijzigen rekent de capaciteit van het tijdslot na
-(eigen tickets tellen mee, want die komen vrij); annuleren zet `ticket.is_actief`
-op 0, waardoor de tickets ongeldig zijn en ze in alle beschikbaarheids- en
-omzettellingen verdwijnen.
+de opslag loopt via `sp_bestelling_ophalen`, `sp_bestelling_lijst`,
+`sp_bestelling_wijzigen` en `sp_bestelling_annuleren`. Wijzigen rekent de
+capaciteit van het tijdslot na (eigen tickets tellen mee, want die komen vrij);
+annuleren zet `ticket.is_actief` op 0, waardoor de tickets ongeldig zijn en ze in
+alle beschikbaarheids- en omzettellingen verdwijnen.
+
+Klopt de combinatie niet, maar staat het e-mailadres wél in de database, dan
+toont de pagina de bestellingen van dat adres (editie, dag, aantal, status) met
+een knop **Openen** die de juiste combinatie met één klik invult — de bezoeker
+hoeft dus niet te gokken naar het ticketnummer.
 
 ### Scenario: tickets succesvol wijzigen
 
@@ -461,6 +466,7 @@ Unhappy flows op beide pagina's:
 | E-mailadres leeg of ongeldig | "Vul je e-mailadres in." / "Vul een geldig e-mailadres in, …" | 422 |
 | Ticketnummer leeg of ongeldig | "Vul een geldig ticketnummer in, bijvoorbeeld 123." | 422 |
 | Bestelling niet gevonden (verkeerd e-mailadres) | "De bestelling is niet gevonden. Controleer je e-mailadres en ticketnummer." | 404 |
+| Bestelling niet gevonden (verkeerd ticketnummer) | idem, plus de lijst met de bestellingen op dat e-mailadres | 404 |
 | Aantal nul of niet-numeriek | "Vul een geldig aantal in (minimaal 1)." | 422 |
 | Meer tickets dan beschikbaar | "Er zijn nog maar X tickets beschikbaar voor dit tijdslot." | 422 |
 | Termijn verstreken | "Je bestelling kan niet meer worden gewijzigd." / "…geannuleerd." | 422 |
