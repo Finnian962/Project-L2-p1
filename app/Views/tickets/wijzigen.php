@@ -9,6 +9,8 @@ declare(strict_types=1);
  *
  * @var array<string, mixed>  $velden
  * @var array<string, mixed>|null $bestelling Gevonden bestelling.
+ * @var list<array<string, mixed>> $bestellingLijst Bestellingen op het
+ *      e-mailadres, wanneer de combinatie niet gevonden is.
  * @var bool                  $actieMogelijk Het wijzigformulier tonen.
  * @var int|null              $maximaal      Hoogste aantal voor dit tijdslot.
  * @var string|null           $prijsverschilTekst Bij- of terugbetaling.
@@ -66,6 +68,37 @@ declare(strict_types=1);
                 'soort' => 'waarschuwing',
                 'tekst' => $melding,
             ]) ?>
+        <?php endif; ?>
+
+        <?php if ($bestellingLijst !== []) : ?>
+            <div class="sectie__kop">
+                <h2 class="sectie__titel">Bestellingen op dit e-mailadres</h2>
+                <p class="sectie__meta">
+                    De combinatie klopt niet; kies hieronder de bestelling die je wilt wijzigen.
+                </p>
+            </div>
+
+            <ul class="bestelling">
+                <?php foreach ($bestellingLijst as $rij) : ?>
+                    <li class="bestelling__regel">
+                        <span>
+                            Ticket #<?= e($rij['ticketnummer']) ?> ·
+                            <?= e($rij['evenement_naam']) ?> ·
+                            <?= e(datumNl($rij['datum'])) ?> — <?= e(tijdKort($rij['tijdslot'])) ?> ·
+                            <?= e($rij['aantal']) ?>
+                            <?= (int) $rij['aantal'] === 1 ? 'ticket' : 'tickets' ?> ·
+                            <?= (int) $rij['is_actief'] === 1 ? 'Geldig' : 'Geannuleerd' ?>
+                        </span>
+                        <strong>
+                            <a
+                                href="<?= e(url('/tickets/wijzigen')
+                                    . '?email=' . rawurlencode($velden['emailadres'])
+                                    . '&ticket=' . $rij['ticketnummer']) ?>"
+                            >Openen</a>
+                        </strong>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
         <?php endif; ?>
 
         <form class="formulier" method="get" action="<?= e(url('/tickets/wijzigen')) ?>">
