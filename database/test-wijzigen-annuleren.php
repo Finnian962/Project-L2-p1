@@ -16,7 +16,8 @@ declare(strict_types=1);
  *              tickets dan beschikbaar (422), een verstreken termijn ("Je
  *              bestelling kan niet meer worden gewijzigd/geannuleerd.",
  *              422, niets veranderd), een dubbele annulering (422) en een
- *              technische fout, bijv. de database niet bereikbaar (503).
+ *              geforceerde databasefout (503, dezelfde trigger als
+ *              `php database/demo_unhappy.php uit bestelling`).
  *
  * Het script heeft de developmentserver nodig:
  *     php -S 127.0.0.1:8000 server.php
@@ -32,7 +33,6 @@ use App\Core\Database;
 use App\Models\TijdslotModel;
 
 const BASIS_URL = 'http://127.0.0.1:8000';
-const CONFIGURATIE = __DIR__ . '/../config/config.php';
 
 /** @var list<string> $fouten */
 $fouten = [];
@@ -262,7 +262,24 @@ if ($ticketnummer < 1 || $verledenTicket < 1) {
 $beschikbaarNaPlaatsing = beschikbaarheid($toekomst['evenement'], $toekomst['prijs']);
 $beschikbaarNaPlaatsingVerleden = beschikbaarheid($verleden['evenement'], $verleden['prijs']);
 
+$tarief = (float) $verbinding->query(
+    'SELECT tarief FROM prijs WHERE id = ' . $toekomst['prijs']
+)->fetchColumn();
+
 $zoekUrl = '?email=' . rawurlencode($eigenTestEmail) . '&ticket=';
+
+// --- 1a. De bevestiging van de bestelling toont de verstuurde mail ---------
+
+$bevestiging = verzoek('GET', '/tickets?besteld=1&ticket=' . $ticketnummer);
+controleer($bevestiging['status'] === 200, 'de bevestigingspagina van de bestelling geeft 200');
+controleer(
+    str_contains($bevestiging['body'], 'Verstuurde mail'),
+    'de bevestiging toont de mail die verstuurd is'
+);
+controleer(
+    str_contains($bevestiging['body'], 'Hieronder vind je je tickets.'),
+    'de mail bevat de bestelgegevens'
+);
 
 // --- 1. De zoekpagina's ----------------------------------------------------
 
@@ -393,6 +410,18 @@ controleer(
     'het prijsverschil dat bijbetaald wordt staat op de bevestiging'
 );
 controleer(
+    str_contains($bevestiging['body'], 'Verstuurde mail'),
+    'de bevestiging toont de wijzigingsmail'
+);
+controleer(
+    str_contains($bevestiging['body'], 'is gewijzigd: van 2 naar 3 tickets'),
+    'de mail beschrijft van welk naar welk aantal gewijzigd is'
+);
+controleer(
+    str_contains($bevestiging['body'], 'Nieuw totaal: ' . euro($tarief * 3)),
+    'de mail noemt het nieuwe totaal'
+);
+controleer(
     str_contains($bevestiging['body'], 'name="aantal"') === false,
     'na een wijziging staat er geen openstaand wijzigformulier meer'
 );
@@ -476,6 +505,18 @@ controleer(
     str_contains($bevestiging['body'], 'Geannuleerd'),
     'de status van de bestelling is nu "Geannuleerd"'
 );
+controleer(
+    str_contains($bevestiging['body'], 'Verstuurde mail'),
+    'de bevestiging toont de annuleringsmail'
+);
+controleer(
+    str_contains($bevestiging['body'], 'Je annulering is gelukt'),
+    'de mail heeft het onderwerp "Je annulering is gelukt"'
+);
+controleer(
+    str_contains($bevestiging['body'], 'De 3 tickets zijn ongeldig.'),
+    'de mail meldt dat de tickets ongeldig zijn'
+);
 
 $rij = ticketRij($ticketnummer);
 controleer(
@@ -532,65 +573,75 @@ controleer(
     'de bestelling van het voorbije event is niet veranderd'
 );
 
-// --- 9. Unhappy flow: de database is niet bereikbaar ------------------------
+// --- 9. Unhappy flow: de database geeft een fout ----------------------------
+//
+// Dezelfde trigger als `php database/demo_unhappy.php uit bestelling`: een
+// UPDATE op de tabel ticket faalt, waardoor sp_bestelling_wijzigen en
+// sp_bestelling_annuleren teruggedraaid worden en de controller een503 toont.
+// De site zelf blijft tijdens deze demo gewoon werken (in tegenstelling tot
+// de databaspoort even verleggen), dus een bezoeker die tussendoor de pagina
+// opent kan gewoon doorgaan.
 
-$origineel = file_get_contents(CONFIGURATIE);
+// Een verse bestelling voor het demo-ticket: die is nog geldig, dus wijzigen
+// en annuleren komen tot de UPDATE en lopen daar op de fout.
+$foutTicket = plaatsBestelling([
+    'evenement_id' => $toekomst['evenement'],
+    'prijs_id'     => $toekomst['prijs'],
+    'aantal'       => 1,
+    'naam'         => 'Wijzig Test',
+    'emailadres'   => $eigenTestEmail,
+]);
 
-if ($origineel === false) {
-    $fouten[] = 'de configuratie kon niet gelezen worden voor de foutdemo';
-    echo 'FOUT: de configuratie kon niet gelezen worden voor de foutdemo.' . PHP_EOL;
+$aangemaakteTickets[] = $foutTicket;
+
+if ($foutTicket < 1) {
+    $fouten[] = 'de testbestelling voor de foutdemo kon niet geplaatst worden';
+    echo 'FOUT: de testbestelling voor de foutdemo kon niet geplaatst worden.' . PHP_EOL;
 } else {
-    // De poort even verleggen, zodat de applicatie de database niet ziet.
-    $kapotteConfiguratie = preg_replace("/('port'\s*=>\s*)3306/", '${1}3307', $origineel, 1);
-
-    if ($kapotteConfiguratie === null || $kapotteConfiguratie === $origineel) {
-        $fouten[] = 'de databaspoort kon niet voor de foutdemo verlegd worden';
-    } else {
-        file_put_contents(CONFIGURATIE, $kapotteConfiguratie);
-
-        // De PHP-server cacheert PHP-bestanden maximaal 2 seconden
-        // (opcache.revalidate_freq); even wachten zodat de kapotte
-        // configuratie ook echt gelezen wordt.
-        sleep(3);
-
-        try {
-            $antwoord = verzoek('POST', '/tickets/wijzigen', [
-                'emailadres'   => $eigenTestEmail,
-                'ticketnummer' => $ticketnummer,
-                'aantal'       => 4,
-            ]);
-            controleer($antwoord['status'] === 503, 'een technische fout bij wijzigen geeft HTTP 503');
-            controleer(
-                str_contains($antwoord['body'], 'Je bestelling kon niet worden gewijzigd.'),
-                'de bezoeker ziet dat de wijziging niet opgeslagen is'
-            );
-
-            $antwoord = verzoek('POST', '/tickets/annuleren', [
-                'emailadres'   => $eigenTestEmail,
-                'ticketnummer' => $verledenTicket,
-            ]);
-            controleer($antwoord['status'] === 503, 'een technische fout bij annuleren geeft HTTP 503');
-            controleer(
-                str_contains($antwoord['body'], 'Je bestelling kon niet worden geannuleerd.'),
-                'de bezoeker ziet dat de annulering niet opgeslagen is'
-            );
-        } finally {
-            file_put_contents(CONFIGURATIE, $origineel);
-            sleep(3);
-        }
-
-        $rij = ticketRij($ticketnummer);
-        $configuratieHersteld = preg_match(
-            "/'port'\s*=>\s*3306/",
-            (string) file_get_contents(CONFIGURATIE)
-        ) === 1;
-
-        controleer(
-            is_array($rij) && (int) $rij['aantal_tickets'] === 3 && (int) $rij['is_actief'] === 0,
-            'bij een technische fout verandert er niets aan de bestelling'
+    try {
+        $verbinding->exec(
+            "CREATE TRIGGER trg_demo_fout_bestelling BEFORE UPDATE ON ticket "
+            . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+            . "SET MESSAGE_TEXT = 'Acceptatietest: geforceerde databasefout'"
         );
-        controleer($configuratieHersteld, 'de configuratie is na de foutdemo hersteld');
+
+        $antwoord = verzoek('POST', '/tickets/wijzigen', [
+            'emailadres'   => $eigenTestEmail,
+            'ticketnummer' => $foutTicket,
+            'aantal'       => 4,
+        ]);
+        controleer($antwoord['status'] === 503, 'een technische fout bij wijzigen geeft HTTP 503');
+        controleer(
+            str_contains($antwoord['body'], 'Je bestelling kon niet worden gewijzigd.'),
+            'de bezoeker ziet dat de wijziging niet opgeslagen is'
+        );
+
+        $antwoord = verzoek('POST', '/tickets/annuleren', [
+            'emailadres'   => $eigenTestEmail,
+            'ticketnummer' => $foutTicket,
+        ]);
+        controleer($antwoord['status'] === 503, 'een technische fout bij annuleren geeft HTTP 503');
+        controleer(
+            str_contains($antwoord['body'], 'Je bestelling kon niet worden geannuleerd.'),
+            'de bezoeker ziet dat de annulering niet opgeslagen is'
+        );
+    } finally {
+        // De trigger verdwijnt altijd, anders blijft de site in de foutmodus.
+        $verbinding->exec('DROP TRIGGER IF EXISTS trg_demo_fout_bestelling');
     }
+
+    $trigger = (int) $verbinding->query(
+        "SELECT COUNT(*) FROM information_schema.triggers
+         WHERE trigger_schema = DATABASE() AND trigger_name = 'trg_demo_fout_bestelling'"
+    )->fetchColumn();
+
+    controleer($trigger === 0, 'de foutdemo-trigger is weer verwijderd');
+
+    $rij = ticketRij($foutTicket);
+    controleer(
+        is_array($rij) && (int) $rij['aantal_tickets'] === 1 && (int) $rij['is_actief'] === 1,
+        'bij een technische fout verandert er niets aan de bestelling'
+    );
 }
 
 // --- Opruimen ---------------------------------------------------------------
