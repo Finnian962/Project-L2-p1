@@ -59,6 +59,35 @@ $terugbetaald = $bestelling === null
             ]) ?>
         <?php endif; ?>
 
+        <?php if ($succesmelding !== null && $bestelling !== null) : ?>
+            <?php
+            $aantalTekst = (int) $bestelling['aantal'] === 1
+                ? 'Het ticket is ongeldig.'
+                : 'De ' . $bestelling['aantal'] . ' tickets zijn ongeldig.';
+
+            $mailRegels = [
+                'Beste ' . $bestelling['bezoeker_naam'] . ',',
+                '',
+                'Je bestelling #' . $bestelling['ticketnummer'] . ' voor '
+                    . $bestelling['evenement_naam'] . ' op '
+                    . datumNl($bestelling['datum']) . ' ('
+                    . tijdKort($bestelling['tijdslot']) . ') is geannuleerd. '
+                    . $aantalTekst,
+                '',
+                'Het bedrag van ' . euro($terugbetaald ?? 0)
+                    . ' wordt teruggestort op je rekening.',
+                '',
+                'Met vriendelijke groet,',
+                'Sneakerness',
+            ];
+            ?>
+            <?= partial('mail-preview', [
+                'aan'       => $bestelling['emailadres'],
+                'onderwerp' => 'Je annulering is gelukt',
+                'tekst'     => implode("\n", $mailRegels),
+            ]) ?>
+        <?php endif; ?>
+
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort' => $foutSoort,

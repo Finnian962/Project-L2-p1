@@ -72,6 +72,28 @@ declare(strict_types=1);
                     . ((int) $besteldTicket['aantal'] === 1 ? ' ticket' : ' tickets')
                     . ' · Totaal ' . euro($besteldTicket['totaal']),
             ]) ?>
+
+            <?= partial('mail-preview', [
+                'aan'       => $besteldTicket['emailadres'],
+                'onderwerp' => 'Je bestelling is gelukt',
+                'tekst'     => implode("\n", [
+                    'Beste ' . $besteldTicket['bezoeker_naam'] . ',',
+                    '',
+                    'Je bestelling #' . $besteldTicket['ticketnummer'] . ' is gelukt. '
+                        . 'Hieronder vind je je tickets.',
+                    '',
+                    $besteldTicket['evenement_naam'],
+                    datumNl($besteldTicket['datum']) . ' — '
+                        . tijdKort($besteldTicket['tijdslot']),
+                    $besteldTicket['aantal']
+                        . ((int) $besteldTicket['aantal'] === 1 ? ' ticket' : ' tickets')
+                        . ' × ' . euro($besteldTicket['tarief']),
+                    'Totaal: ' . euro($besteldTicket['totaal']),
+                    '',
+                    'Met vriendelijke groet,',
+                    'Sneakerness',
+                ]),
+            ]) ?>
         <?php endif; ?>
 
         <?php if ($bestelfout !== null) : ?>

@@ -56,6 +56,35 @@ declare(strict_types=1);
             ]) ?>
         <?php endif; ?>
 
+        <?php if ($succesmelding !== null && $bestelling !== null) : ?>
+            <?php
+            $mailRegels = [
+                'Beste ' . $bestelling['bezoeker_naam'] . ',',
+                '',
+                'Je bestelling #' . $bestelling['ticketnummer'] . ' is gewijzigd: van '
+                    . $oudAantal . ' naar ' . $bestelling['aantal'] . ' tickets voor '
+                    . $bestelling['evenement_naam'] . ' op '
+                    . datumNl($bestelling['datum']) . ' ('
+                    . tijdKort($bestelling['tijdslot']) . ').',
+                '',
+                'Nieuw totaal: ' . euro($bestelling['totaal']),
+            ];
+
+            if ($prijsverschilTekst !== null) {
+                $mailRegels[] = $prijsverschilTekst;
+            }
+
+            $mailRegels[] = '';
+            $mailRegels[] = 'Met vriendelijke groet,';
+            $mailRegels[] = 'Sneakerness';
+            ?>
+            <?= partial('mail-preview', [
+                'aan'       => $bestelling['emailadres'],
+                'onderwerp' => 'Je bestelling is gewijzigd',
+                'tekst'     => implode("\n", $mailRegels),
+            ]) ?>
+        <?php endif; ?>
+
         <?php if ($foutmelding !== null) : ?>
             <?= partial('melding', [
                 'soort' => $foutSoort,
