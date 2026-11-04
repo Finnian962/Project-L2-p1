@@ -12,11 +12,16 @@ declare(strict_types=1);
  *              bezoeker staat; de beschikbaarheid gaat omlaag.
  *  - unhappy -> ongeldige invoer (422), een mislukte betaling (303, niets
  *              geplaatst), meer tickets dan beschikbaar (422) en een
- *              technische fout, bijv. de database niet bereikbaar (503, geen
- *              ticket en geen bezoeker aangemaakt).
+ *              geforceerde databasefout (503, geen ticket en geen bezoeker
+ *              aangemaakt; dezelfde trigger als
+ *              `php database/demo_unhappy.php uit bestelling`).
  *
  * Het script heeft de developmentserver nodig:
- *     php -S 127.0.0.1:8000 -t public
+ *     php -S 127.0.0.1:8000 server.php
+ *
+ * De ticketpagina's zijn alleen voor ingelogde gebruikers bereikbaar: de test
+ * logt zelf in als beheerder (noah) en controleert dat een bezoeker zonder
+ * login wordt doorgestuurd naar /inloggen.
  *
  * Alles wat deze test aanmaakt wordt na afloop weer opgeruimd.
  *
@@ -30,7 +35,12 @@ use App\Models\EvenementModel;
 use App\Models\TijdslotModel;
 
 const BASIS_URL = 'http://127.0.0.1:8000';
-const CONFIGURATIE = __DIR__ . '/../config/config.php';
+
+/**
+ * Sessiebestand waarin de test de inlogcookie bewaart: de ticketpagina's zijn
+ * voortaan alleen voor ingelogde gebruikers bereikbaar.
+ */
+define('COOKIE_BESTAND', sys_get_temp_dir() . '/sneakerness-test-cookies.txt');
 
 /** @var list<string> $fouten */
 $fouten = [];
@@ -58,6 +68,9 @@ register_shutdown_function(static function () use (&$aangemaakteTickets, $eigenT
         // Opruimen is een extraatje: een fout hieronder mag de uitkomst niet
         // overschrijven.
     }
+
+    // Ook de inlogcookie van de test ruimen we op.
+    @unlink(COOKIE_BESTAND);
 });
 
 /**
@@ -73,6 +86,8 @@ function verzoek(string $methode, string $pad, array $velden = []): array
         CURLOPT_TIMEOUT        => 10,
         CURLOPT_HEADER         => true,
         CURLOPT_CUSTOMREQUEST  => strtoupper($methode),
+        CURLOPT_COOKIEJAR      => COOKIE_BESTAND,
+        CURLOPT_COOKIEFILE     => COOKIE_BESTAND,
     ];
 
     if (strtoupper($methode) !== 'GET' && $velden !== []) {
@@ -105,6 +120,27 @@ function verzoek(string $methode, string $pad, array $velden = []): array
         'locatie' => $locatie,
         'body'    => substr($antwoord, $koppen),
     ];
+}
+
+/**
+ * Logt in als beheerder, zodat de ticketpagina's bereikbaar zijn.
+ *
+ * Stopt het script wanneer inloggen niet lukt: zonder sessie kan er geen enkele
+ * ticketcontrole uitgevoerd worden.
+ */
+function logIn(): void
+{
+    $antwoord = verzoek('POST', '/inloggen', [
+        'gebruikersnaam' => 'noah',
+        'wachtwoord'     => 'Sneakerness2026!',
+    ]);
+
+    if ($antwoord['status'] !== 302) {
+        echo 'FOUT: inloggen als noah lukte niet (HTTP ' . $antwoord['status'] . '). '
+            . 'Start de server met: php -S 127.0.0.1:8000 server.php' . PHP_EOL;
+
+        exit(1);
+    }
 }
 
 /**
@@ -145,13 +181,28 @@ try {
     exit(1);
 }
 
-$testReeks = verzoek('GET', '/tickets');
+$testReeks = verzoek('GET', '/');
 
 if ($testReeks['status'] !== 200) {
     echo 'FOUT: de developmentserver draait niet op ' . BASIS_URL
-        . PHP_EOL . 'Start hem met: php -S 127.0.0.1:8000 -t public' . PHP_EOL;
+        . PHP_EOL . 'Start hem met: php -S 127.0.0.1:8000 server.php' . PHP_EOL;
     exit(1);
 }
+
+// Zonder login zijn de ticketpagina's niet bereikbaar: /tickets stuurt door
+// naar /inloggen met de wachtmelding "Je moet ingelogd zijn om deze pagina te
+// bekijken." Daarna logt de test in, zodat de bestelflow verder kan.
+$afgemeld = verzoek('GET', '/tickets');
+controleer($afgemeld['status'] === 302, 'zonder login geeft /tickets een doorverwijzing');
+controleer(
+    str_contains($afgemeld['locatie'], '/inloggen'),
+    'de doorverwijzing gaat naar de inlogpagina'
+);
+
+logIn();
+
+$ingelogd = verzoek('GET', '/tickets');
+controleer($ingelogd['status'] === 200, 'na het inloggen is /tickets bereikbaar');
 
 $evenement = (new EvenementModel())->haalOverzicht()[0] ?? null;
 
@@ -313,53 +364,44 @@ controleer(
     'er komt precies één bezoeker bij in de database'
 );
 
-// --- 7. Unhappy: de database is niet bereikbaar ---------------------------
+// --- 7. Unhappy: de database geeft een fout --------------------------------
+//
+// Dezelfde trigger als `php database/demo_unhappy.php uit bestelling`: een
+// INSERT op de tabel ticket faalt, waardoor sp_bestelling_plaatsen
+// teruggedraaid wordt en de controller een 503 toont. De site zelf blijft tijdens
+// deze demo gewoon werken (in tegenstelling tot de databaspoort even verleggen),
+// dus een bezoeker die tussendoor bestelt kan gewoon doorgaan.
 
-$origineel = file_get_contents(CONFIGURATIE);
+try {
+    $verbinding->exec(
+        "CREATE TRIGGER trg_demo_fout_bestellen BEFORE INSERT ON ticket "
+        . "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+        . "SET MESSAGE_TEXT = 'Acceptatietest: geforceerde databasefout'"
+    );
 
-if ($origineel === false) {
-    $fouten[] = 'de configuratie kon niet gelezen worden voor de foutdemo';
-    echo 'FOUT: de configuratie kon niet gelezen worden voor de foutdemo.' . PHP_EOL;
-} else {
-    // De poort even verleggen, zodat de applicatie de database niet ziet.
-    // Let op: '${1}3307' (en niet '$1' . '3307'), anders leest preg_replace
-    // het geheel als één onbestaande groepsverwijzing.
-    $kapotteConfiguratie = preg_replace("/('port'\s*=>\s*)3306/", '${1}3307', $origineel, 1);
-
-    if ($kapotteConfiguratie === null || $kapotteConfiguratie === $origineel) {
-        $fouten[] = 'de databaspoort kon niet voor de foutdemo verlegd worden';
-    } else {
-        file_put_contents(CONFIGURATIE, $kapotteConfiguratie);
-
-        // De PHP-server cacheert PHP-bestanden maximaal 2 seconden
-        // (opcache.revalidate_freq); even wachten zodat de kapotte
-        // configuratie ook echt gelezen wordt.
-        sleep(3);
-
-        try {
-            $antwoord = verzoek('POST', '/tickets/betalen', [...$velden, 'betaling' => 'geslaagd']);
-            controleer($antwoord['status'] === 503, 'een technische fout geeft HTTP 503');
-            controleer(
-                str_contains($antwoord['body'], 'Je bestelling is niet geplaatst. Probeer het later opnieuw.'),
-                'de bezoeker ziet dat de bestelling niet geplaatst is'
-            );
-        } finally {
-            file_put_contents(CONFIGURATIE, $origineel);
-            sleep(3);
-        }
-
-        $ticketsNaFout = (int) $verbinding->query('SELECT COUNT(*) FROM ticket')->fetchColumn();
-        $bezoekersNaFout = (int) $verbinding->query('SELECT COUNT(*) FROM bezoeker')->fetchColumn();
-        $configuratieHersteld = preg_match(
-            "/'port'\s*=>\s*3306/",
-            (string) file_get_contents(CONFIGURATIE)
-        ) === 1;
-
-        controleer($ticketsNaFout === $ticketsStart + 2, 'bij een technische fout komt er geen ticket bij');
-        controleer($bezoekersNaFout === $bezoekersStart + 1, 'bij een technische fout komt er geen bezoeker bij');
-        controleer($configuratieHersteld, 'de configuratie is na de foutdemo hersteld');
-    }
+    $antwoord = verzoek('POST', '/tickets/betalen', [...$velden, 'betaling' => 'geslaagd']);
+    controleer($antwoord['status'] === 503, 'een technische fout geeft HTTP 503');
+    controleer(
+        str_contains($antwoord['body'], 'Je bestelling is niet geplaatst. Probeer het later opnieuw.'),
+        'de bezoeker ziet dat de bestelling niet geplaatst is'
+    );
+} finally {
+    // De trigger verdwijnt altijd, anders blijft de site in de foutmodus.
+    $verbinding->exec('DROP TRIGGER IF EXISTS trg_demo_fout_bestellen');
 }
+
+$trigger = (int) $verbinding->query(
+    "SELECT COUNT(*) FROM information_schema.triggers
+     WHERE trigger_schema = DATABASE() AND trigger_name = 'trg_demo_fout_bestellen'"
+)->fetchColumn();
+
+controleer($trigger === 0, 'de foutdemo-trigger is weer verwijderd');
+
+$ticketsNaFout = (int) $verbinding->query('SELECT COUNT(*) FROM ticket')->fetchColumn();
+$bezoekersNaFout = (int) $verbinding->query('SELECT COUNT(*) FROM bezoeker')->fetchColumn();
+
+controleer($ticketsNaFout === $ticketsStart + 2, 'bij een technische fout komt er geen ticket bij');
+controleer($bezoekersNaFout === $bezoekersStart + 1, 'bij een technische fout komt er geen bezoeker bij');
 
 // --- Opruimen ---------------------------------------------------------------
 
