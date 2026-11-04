@@ -42,6 +42,11 @@ declare(strict_types=1);
                 <button class="knop knop--klein" type="submit">Toon tijdsloten</button>
             </form>
         <?php endif; ?>
+
+        <div class="pagina-kop__acties">
+            <a class="knop knop--leeg" href="<?= e(url('/tickets/wijzigen')) ?>">Bestelling wijzigen</a>
+            <a class="knop knop--leeg" href="<?= e(url('/tickets/annuleren')) ?>">Bestelling annuleren</a>
+        </div>
     </div>
 </section>
 
@@ -125,9 +130,11 @@ declare(strict_types=1);
                 'soort' => 'info',
                 'kop'   => 'Bestellen of boeken',
                 'tekst' => 'Bezoekers bestellen tickets via de knop "Bestellen" bij een tijdslot '
-                    . '(naam, e-mailadres en aantal, daarna afrekenen). Een medewerker boekt een '
-                    . 'ticket via "Ticket boeken" en voegt nieuwe tijdsloten toe via '
-                    . '"Ticket toevoegen" in het menu.',
+                    . '(naam, e-mailadres en aantal, daarna afrekenen). Een bestelling past je '
+                    . 'aan of annuleer je via "Bestelling wijzigen" en "Bestelling annuleren" '
+                    . 'bovenaan deze pagina. Een medewerker boekt een ticket via "Ticket '
+                    . 'boeken" en voegt nieuwe tijdsloten toe via "Ticket toevoegen" in het '
+                    . 'menu.',
             ]) ?>
         <?php endif; ?>
     </div>
