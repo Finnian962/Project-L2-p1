@@ -24,6 +24,7 @@ DROP PROCEDURE IF EXISTS sp_tijdslot_toevoegen;
 DROP PROCEDURE IF EXISTS sp_bestelling_plaatsen;
 DROP PROCEDURE IF EXISTS sp_bestelling_bevesting;
 DROP PROCEDURE IF EXISTS sp_bestelling_ophalen;
+DROP PROCEDURE IF EXISTS sp_bestelling_lijst;
 DROP PROCEDURE IF EXISTS sp_bestelling_wijzigen;
 DROP PROCEDURE IF EXISTS sp_bestelling_annuleren;
 DROP PROCEDURE IF EXISTS sp_rapport_ticketverkoop;
@@ -764,6 +765,38 @@ BEGIN
         ON b.id = t.bezoeker_id
     WHERE t.id = p_ticketnummer
       AND b.emailadres = TRIM(p_emailadres);
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_bestelling_lijst
+-- Alle bestellingen van één e-mailadres, nieuwste eerst.
+--
+-- De bezoeker zoekt met e-mailadres én ticketnummer; wanneer die twee niet
+-- bij elkaar horen helpt deze lijst hem of haar het juiste ticketnummer te
+-- vinden (de knoppen op de wijzig- en annuleerpagina's openen de
+-- bestelling direct). Een onbekend adres levert geen rijen op.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_bestelling_lijst(IN p_emailadres VARCHAR(150))
+BEGIN
+    SELECT
+        t.id                     AS ticketnummer,
+        e.naam                   AS evenement_naam,
+        p.datum,
+        p.tijdslot,
+        p.tarief,
+        t.aantal_tickets         AS aantal,
+        (p.tarief * t.aantal_tickets) AS totaal,
+        t.is_actief,
+        IF(CURDATE() < e.datum, 1, 0) AS mag_wijzigen
+    FROM ticket t
+    INNER JOIN prijs p
+        ON p.id = t.prijs_id
+    INNER JOIN evenement e
+        ON e.id = t.evenement_id
+    INNER JOIN bezoeker b
+        ON b.id = t.bezoeker_id
+    WHERE b.emailadres = TRIM(p_emailadres)
+    ORDER BY t.datum_aangemaakt DESC, t.id DESC;
 END$$
 
 -- -----------------------------------------------------------------------------

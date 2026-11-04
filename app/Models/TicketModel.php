@@ -127,6 +127,21 @@ final class TicketModel extends Model
     }
 
     /**
+     * Alle bestellingen van één e-mailadres, nieuwste eerst.
+     *
+     * Helpt de bezoeker het juiste ticketnummer te vinden wanneer e-mailadres
+     * en ticketnummer niet bij elkaar horen.
+     *
+     * @return list<array<string, mixed>> Leeg wanneer het adres geen bestellingen heeft.
+     *
+     * @throws DatabaseException Wanneer de gegevens niet opgehaald kunnen worden.
+     */
+    public function haalBestellingenVanEmail(string $emailadres): array
+    {
+        return $this->roepProcedureAan('sp_bestelling_lijst', [$emailadres]);
+    }
+
+    /**
      * Wijzigt het aantal tickets van een bestelling en geeft het oude en het
      * nieuwe aantal plus het prijsverschil terug.
      *
