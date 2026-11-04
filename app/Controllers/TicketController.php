@@ -26,6 +26,13 @@ use App\Models\TijdslotModel;
  *    geslaagde betaling staat het ticket op naam van de bezoeker en is er
  *    een bevestiging; bij een mislukte betaling of technische fout wordt er
  *    niets geplaatst.
+ *  - /tickets/wijzigen   haalt een bestelling op met e-mailadres en
+ *    ticketnummer en past het aantal tickets aan, met het prijsverschil op
+ *    de bevestiging. Tot de start van het evenement; daarna "Je bestelling
+ *    kan niet meer worden gewijzigd."
+ *  - /tickets/annuleren  annuleert zo'n bestelling: de tickets worden
+ *    ongeldig en het bedrag komt vrij, ook weer tot de start van het
+ *    evenement.
  */
 final class TicketController extends Controller
 {
@@ -504,6 +511,561 @@ final class TicketController extends Controller
             $gegevens['foutSoort'] = 'fout';
             $this->toon('tickets/betalen', $gegevens, 503);
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Tickets wijzigen en annuleren (GET/POST /tickets/wijzigen en
+    // GET/POST /tickets/annuleren)
+    // ---------------------------------------------------------------------
+
+    /**
+     * GET /tickets/wijzigen?email={emailadres}&ticket={nummer}
+     *
+     * Zoekformulier (e-mailadres + ticketnummer) en daarna het wijzigformulier
+     * met de gevonden bestelling. Zonder die twee gegevens wordt alleen het
+     * zoekformulier getoond.
+     *
+     * Na een geslaagde wijziging (?gewijzigd=1) toont dezelfde pagina de
+     * nieuwe bestelgegevens en het prijsverschil.
+     */
+    public function wijzigen(Request $request): void
+    {
+        $velden = [
+            'emailadres'   => $request->query('email'),
+            'ticketnummer' => $request->queryAlsGetal('ticket'),
+            'aantal'       => 1,
+        ];
+
+        $gegevens = $this->zoekGegevens('Bestelling wijzigen', '/tickets/wijzigen', $velden);
+        $gegevens['succesmelding'] = $request->heeftQuery('gewijzigd')
+            ? 'Je bestelling is gewijzigd.'
+            : null;
+
+        $oudAantal = $request->queryAlsGetal('oud');
+        $gegevens['oudAantal'] = $oudAantal > 0 ? $oudAantal : null;
+
+        // Zonder ingevulde gegevens: alleen het zoekformulier tonen.
+        if ($velden['emailadres'] === '' && $velden['ticketnummer'] < 1) {
+            $this->toon('tickets/wijzigen', $gegevens, 200);
+
+            return;
+        }
+
+        $zoekFout = $this->controleerZoekopdracht($velden);
+
+        if ($zoekFout !== null) {
+            // Unhappy flow: de invoer is onvolledig of ongeldig.
+            $gegevens['foutmelding'] = $zoekFout;
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/wijzigen', $gegevens, 422);
+
+            return;
+        }
+
+        try {
+            $bestelling = (new TicketModel())->haalBestelling(
+                $velden['emailadres'],
+                $velden['ticketnummer']
+            );
+
+            if ($bestelling !== null) {
+                $gegevens['bestelling'] = $bestelling;
+                $gegevens['velden']['aantal'] = (int) $bestelling['aantal'];
+                $gegevens['maximaal'] = $this->maximaalAantal($bestelling);
+            }
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Bestelling kon niet worden opgehaald om te wijzigen');
+
+            $gegevens['foutmelding'] = 'De bestelling kon niet worden opgehaald. '
+                . 'Probeer het later opnieuw.';
+            $gegevens['foutSoort'] = 'fout';
+            $this->toon('tickets/wijzigen', $gegevens, 503);
+
+            return;
+        }
+
+        if ($gegevens['bestelling'] === null) {
+            // Unhappy flow: e-mailadres en ticketnummer horen niet bij elkaar.
+            Logger::warning('Bestelling niet gevonden bij wijzigen', [
+                'ticketnummer' => $velden['ticketnummer'],
+                'emailadres'   => $velden['emailadres'],
+            ]);
+
+            $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
+                . 'Controleer je e-mailadres en ticketnummer.';
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/wijzigen', $gegevens, 404);
+
+            return;
+        }
+
+        // Bevestiging van de zojuist opgeslagen wijziging: de nieuwe
+        // bestelgegevens plus het prijsverschil dat bij- of terugbetaald wordt.
+        if ($gegevens['succesmelding'] !== null) {
+            $gegevens['prijsverschilTekst'] = $this->prijsverschilTekst(
+                $gegevens['bestelling'],
+                $gegevens['oudAantal']
+            );
+            $this->toon('tickets/wijzigen', $gegevens, 200);
+
+            return;
+        }
+
+        // Unhappy flow: de termijn is verstreken of de bestelling is al
+        // geannuleerd. De bestelling blijft ongewijzigd.
+        if (!$this->magHandelen($gegevens['bestelling'])) {
+            $gegevens['foutmelding'] = $this->termijnMelding($gegevens['bestelling'], false);
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/wijzigen', $gegevens, 422);
+
+            return;
+        }
+
+        $gegevens['actieMogelijk'] = true;
+        $this->toon('tickets/wijzigen', $gegevens, 200);
+    }
+
+    /**
+     * POST /tickets/wijzigen
+     *
+     * Slaat het nieuwe aantal tickets op en stuurt door naar de
+     * bevestigingspagina met de nieuwe bestelgegevens en het prijsverschil.
+     * Bij een fout blijft de bestelling ongewijzigd en staan de ingevulde
+     * waarden nog in het formulier.
+     */
+    public function wijzigBestelling(Request $request): void
+    {
+        $velden = [
+            'emailadres'   => $request->post('emailadres'),
+            'ticketnummer' => $request->postAlsGetal('ticketnummer'),
+            'aantal'       => $this->postGetal($request->post('aantal')),
+        ];
+
+        $gegevens = $this->zoekGegevens('Bestelling wijzigen', '/tickets/wijzigen', $velden);
+
+        $zoekFout = $this->controleerZoekopdracht($velden);
+
+        if ($zoekFout === null && $velden['aantal'] < 1) {
+            $zoekFout = 'Vul een geldig aantal in (minimaal 1).';
+        }
+
+        if ($zoekFout !== null) {
+            $gegevens['foutmelding'] = $zoekFout;
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/wijzigen', $gegevens, 422);
+
+            return;
+        }
+
+        try {
+            $bestelling = (new TicketModel())->haalBestelling(
+                $velden['emailadres'],
+                $velden['ticketnummer']
+            );
+
+            if ($bestelling === null) {
+                Logger::warning('Bestelling niet gevonden bij wijzigen', [
+                    'ticketnummer' => $velden['ticketnummer'],
+                    'emailadres'   => $velden['emailadres'],
+                ]);
+
+                $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
+                    . 'Controleer je e-mailadres en ticketnummer.';
+                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->toon('tickets/wijzigen', $gegevens, 404);
+
+                return;
+            }
+
+            $gegevens['bestelling'] = $bestelling;
+            $gegevens['maximaal'] = $this->maximaalAantal($bestelling);
+
+            // Unhappy flow: de termijn is verstreken of de bestelling is al
+            // geannuleerd. Er wordt niets gewijzigd.
+            if (!$this->magHandelen($bestelling)) {
+                $gegevens['foutmelding'] = $this->termijnMelding($bestelling, false);
+                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->toon('tickets/wijzigen', $gegevens, 422);
+
+                return;
+            }
+
+            $oudAantal = (int) $bestelling['aantal'];
+            $maximaal = $gegevens['maximaal'];
+
+            // Unhappy flow: meer tickets dan er in het tijdslot passen. De
+            // eigen tickets tellen mee, want die komen weer vrij.
+            if ($maximaal !== null && $velden['aantal'] > $maximaal) {
+                $gegevens['foutmelding'] = 'Er zijn nog maar ' . $maximaal
+                    . ' tickets beschikbaar voor dit tijdslot.';
+                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->toon('tickets/wijzigen', $gegevens, 422);
+
+                return;
+            }
+
+            $resultaat = (new TicketModel())->wijzigAantal(
+                $velden['ticketnummer'],
+                $velden['emailadres'],
+                $velden['aantal']
+            );
+
+            Logger::info('Bestelling gewijzigd', [
+                'ticketnummer'  => $velden['ticketnummer'],
+                'emailadres'    => $velden['emailadres'],
+                'oud_aantal'    => $oudAantal,
+                'nieuw_aantal'  => $velden['aantal'],
+                'prijsverschil' => euro($resultaat['prijsverschil'] ?? 0),
+            ]);
+
+            // Er is geen mailserver in dit project: de wijziging wordt
+            // vastgelegd in de technische log én getoond op de
+            // bevestigingspagina.
+            Logger::info('Wijzigingsmail verstuurd', [
+                'aan'          => $velden['emailadres'],
+                'onderwerp'    => 'Je bestelling is gewijzigd',
+                'ticket'       => $velden['ticketnummer'],
+                'oud_aantal'   => $oudAantal,
+                'nieuw_aantal' => $velden['aantal'],
+                'totaal'       => euro($resultaat['nieuw_totaal'] ?? 0),
+            ]);
+
+            // Redirect (PRG) naar de bevestigingspagina.
+            header(
+                'Location: ' . url('/tickets/wijzigen')
+                    . '?gewijzigd=1'
+                    . '&ticket=' . $velden['ticketnummer']
+                    . '&email=' . rawurlencode($velden['emailadres'])
+                    . '&oud=' . $oudAantal,
+                true,
+                303
+            );
+            exit;
+        } catch (DatabaseException $fout) {
+            // Unhappy flow: technische fout. Er is niets gewijzigd en de
+            // ingevulde waarden blijven in het formulier staan.
+            Logger::exception($fout, 'Bestelling kon niet worden gewijzigd');
+
+            $gegevens['foutmelding'] = 'Je bestelling kon niet worden gewijzigd. '
+                . 'Probeer het later opnieuw.';
+            $gegevens['foutSoort'] = 'fout';
+            $this->toon('tickets/wijzigen', $gegevens, 503);
+        }
+    }
+
+    /**
+     * GET /tickets/annuleren?email={emailadres}&ticket={nummer}
+     *
+     * Zoekformulier (e-mailadres + ticketnummer) en daarna de bestelling met
+     * een bevestigingsknop. Na een geslaagde annulering (?geannuleerd=1)
+     * toont dezelfde pagina dat de annulering gelukt is en welk bedrag er
+     * terugbetaald wordt.
+     */
+    public function annuleren(Request $request): void
+    {
+        $velden = [
+            'emailadres'   => $request->query('email'),
+            'ticketnummer' => $request->queryAlsGetal('ticket'),
+        ];
+
+        $gegevens = $this->zoekGegevens('Bestelling annuleren', '/tickets/annuleren', $velden);
+        $gegevens['succesmelding'] = $request->heeftQuery('geannuleerd')
+            ? 'De annulering is gelukt.'
+            : null;
+
+        if ($velden['emailadres'] === '' && $velden['ticketnummer'] < 1) {
+            $this->toon('tickets/annuleren', $gegevens, 200);
+
+            return;
+        }
+
+        $zoekFout = $this->controleerZoekopdracht($velden);
+
+        if ($zoekFout !== null) {
+            $gegevens['foutmelding'] = $zoekFout;
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/annuleren', $gegevens, 422);
+
+            return;
+        }
+
+        try {
+            $bestelling = (new TicketModel())->haalBestelling(
+                $velden['emailadres'],
+                $velden['ticketnummer']
+            );
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Bestelling kon niet worden opgehaald om te annuleren');
+
+            $gegevens['foutmelding'] = 'De bestelling kon niet worden opgehaald. '
+                . 'Probeer het later opnieuw.';
+            $gegevens['foutSoort'] = 'fout';
+            $this->toon('tickets/annuleren', $gegevens, 503);
+
+            return;
+        }
+
+        if ($bestelling === null) {
+            Logger::warning('Bestelling niet gevonden bij annuleren', [
+                'ticketnummer' => $velden['ticketnummer'],
+                'emailadres'   => $velden['emailadres'],
+            ]);
+
+            $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
+                . 'Controleer je e-mailadres en ticketnummer.';
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/annuleren', $gegevens, 404);
+
+            return;
+        }
+
+        $gegevens['bestelling'] = $bestelling;
+
+        // Bevestiging van de zojuist afgeronde annulering.
+        if ($gegevens['succesmelding'] !== null) {
+            $this->toon('tickets/annuleren', $gegevens, 200);
+
+            return;
+        }
+
+        // Unhappy flow: de termijn is verstreken of de bestelling is al
+        // geannuleerd. De tickets blijven zoals ze zijn.
+        if (!$this->magHandelen($bestelling)) {
+            $gegevens['foutmelding'] = $this->termijnMelding($bestelling, true);
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/annuleren', $gegevens, 422);
+
+            return;
+        }
+
+        $gegevens['actieMogelijk'] = true;
+        $this->toon('tickets/annuleren', $gegevens, 200);
+    }
+
+    /**
+     * POST /tickets/annuleren
+     *
+     * Annuleert de bestelling: de tickets worden ongeldig en het bedrag komt
+     * vrij. Daarna doorverwijzen naar de bevestigingspagina (PRG), zodat het
+     * verversen de annulering niet nog een keer uitvoert.
+     */
+    public function annuleerBestelling(Request $request): void
+    {
+        $velden = [
+            'emailadres'   => $request->post('emailadres'),
+            'ticketnummer' => $request->postAlsGetal('ticketnummer'),
+        ];
+
+        $gegevens = $this->zoekGegevens('Bestelling annuleren', '/tickets/annuleren', $velden);
+
+        $zoekFout = $this->controleerZoekopdracht($velden);
+
+        if ($zoekFout !== null) {
+            $gegevens['foutmelding'] = $zoekFout;
+            $gegevens['foutSoort'] = 'waarschuwing';
+            $this->toon('tickets/annuleren', $gegevens, 422);
+
+            return;
+        }
+
+        try {
+            $bestelling = (new TicketModel())->haalBestelling(
+                $velden['emailadres'],
+                $velden['ticketnummer']
+            );
+
+            if ($bestelling === null) {
+                Logger::warning('Bestelling niet gevonden bij annuleren', [
+                    'ticketnummer' => $velden['ticketnummer'],
+                    'emailadres'   => $velden['emailadres'],
+                ]);
+
+                $gegevens['foutmelding'] = 'De bestelling is niet gevonden. '
+                    . 'Controleer je e-mailadres en ticketnummer.';
+                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->toon('tickets/annuleren', $gegevens, 404);
+
+                return;
+            }
+
+            $gegevens['bestelling'] = $bestelling;
+
+            // Unhappy flow: de termijn is verstreken of de bestelling is al
+            // geannuleerd. Er verandert niets.
+            if (!$this->magHandelen($bestelling)) {
+                $gegevens['foutmelding'] = $this->termijnMelding($bestelling, true);
+                $gegevens['foutSoort'] = 'waarschuwing';
+                $this->toon('tickets/annuleren', $gegevens, 422);
+
+                return;
+            }
+
+            $resultaat = (new TicketModel())->annuleerBestelling(
+                $velden['ticketnummer'],
+                $velden['emailadres']
+            );
+
+            Logger::info('Bestelling geannuleerd', [
+                'ticketnummer' => $velden['ticketnummer'],
+                'emailadres'   => $velden['emailadres'],
+                'aantal'       => $resultaat['aantal'] ?? null,
+                'bedrag'       => euro($resultaat['bedrag'] ?? 0),
+            ]);
+
+            // Er is geen mailserver in dit project: de annuleringsbevestiging
+            // wordt vastgelegd in de technische log én getoond op de
+            // bevestigingspagina.
+            Logger::info('Annuleringsmail verstuurd', [
+                'aan'       => $velden['emailadres'],
+                'onderwerp' => 'Je annulering is gelukt',
+                'ticket'    => $velden['ticketnummer'],
+                'aantal'    => $resultaat['aantal'] ?? null,
+                'bedrag'    => euro($resultaat['bedrag'] ?? 0),
+            ]);
+
+            // Redirect (PRG) naar de bevestigingspagina.
+            header(
+                'Location: ' . url('/tickets/annuleren')
+                    . '?geannuleerd=1'
+                    . '&ticket=' . $velden['ticketnummer']
+                    . '&email=' . rawurlencode($velden['emailadres']),
+                true,
+                303
+            );
+            exit;
+        } catch (DatabaseException $fout) {
+            // Unhappy flow: technische fout. De bestelling blijft geldig.
+            Logger::exception($fout, 'Bestelling kon niet worden geannuleerd');
+
+            $gegevens['foutmelding'] = 'Je bestelling kon niet worden geannuleerd. '
+                . 'Probeer het later opnieuw.';
+            $gegevens['foutSoort'] = 'fout';
+            $this->toon('tickets/annuleren', $gegevens, 503);
+        }
+    }
+
+    /**
+     * De basisgegevens voor de wijzig- en annuleerpagina's.
+     *
+     * @param  array<string, mixed> $velden
+     * @return array<string, mixed>
+     */
+    private function zoekGegevens(string $titel, string $pad, array $velden): array
+    {
+        $gegevens = $this->basisGegevens($titel, $pad, $velden);
+
+        $gegevens['bestelling']        = null;
+        $gegevens['actieMogelijk']     = false;
+        $gegevens['maximaal']          = null;
+        $gegevens['oudAantal']         = null;
+        $gegevens['prijsverschilTekst'] = null;
+
+        return $gegevens;
+    }
+
+    /**
+     * Controleert de zoekgegevens (e-mailadres en ticketnummer) en geeft de
+     * eerste fout terug, of null wanneer ze ingevuld zijn.
+     *
+     * @param array<string, mixed> $velden
+     */
+    private function controleerZoekopdracht(array $velden): ?string
+    {
+        $emailadres = (string) ($velden['emailadres'] ?? '');
+
+        if ($emailadres === '') {
+            return 'Vul je e-mailadres in.';
+        }
+
+        if (mb_strlen($emailadres) > 150) {
+            return 'Het e-mailadres mag maximaal 150 tekens bevatten.';
+        }
+
+        if (filter_var($emailadres, FILTER_VALIDATE_EMAIL) === false) {
+            return 'Vul een geldig e-mailadres in, bijvoorbeeld jan@voorbeeld.nl.';
+        }
+
+        if ((int) ($velden['ticketnummer'] ?? 0) < 1) {
+            return 'Vul een geldig ticketnummer in, bijvoorbeeld 123.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Geeft terug of de bezoeker de bestelling nog mag wijzigen of annuleren:
+     * niet geannuleerd én het evenement is nog niet begonnen.
+     *
+     * @param array<string, mixed> $bestelling
+     */
+    private function magHandelen(array $bestelling): bool
+    {
+        return (int) ($bestelling['is_actief'] ?? 0) === 1
+            && (int) ($bestelling['mag_wijzigen'] ?? 0) === 1;
+    }
+
+    /**
+     * De melding wanneer wijzigen of annuleren niet meer mag: de termijn is
+     * verstreken (of de bestelling is al geannuleerd).
+     *
+     * @param array<string, mixed> $bestelling
+     */
+    private function termijnMelding(array $bestelling, bool $annuleren): string
+    {
+        if ((int) ($bestelling['is_actief'] ?? 1) === 0) {
+            return $annuleren
+                ? 'Deze bestelling is al geannuleerd.'
+                : 'Je bestelling kan niet meer worden gewijzigd.';
+        }
+
+        return $annuleren
+            ? 'Je bestelling kan niet meer worden geannuleerd.'
+            : 'Je bestelling kan niet meer worden gewijzigd.';
+    }
+
+    /**
+     * Het hoogste aantal tickets dat deze bestelling nog mag hebben: de
+     * beschikbaarheid van het tijdslot plus de eigen tickets die weer vrijkomen.
+     *
+     * Null wanneer het tijdslot niet (meer) in het overzicht staat; dan laat
+     * de controller de capaciteitscontrole aan de stored procedure over.
+     *
+     * @param array<string, mixed> $bestelling
+     */
+    private function maximaalAantal(array $bestelling): ?int
+    {
+        $tijdsloten = (new TijdslotModel())->haalOverzicht((int) $bestelling['evenement_id']);
+
+        foreach ($tijdsloten as $tijdslot) {
+            if ($tijdslot->prijsId === (int) $bestelling['prijs_id']) {
+                return $tijdslot->beschikbareTickets + (int) $bestelling['aantal'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * De tekst over het prijsverschil na een wijziging: bij- of terugbetaald.
+     *
+     * @param array<string, mixed> $bestelling
+     * @param int|null             $oudAantal Aantal vóór de wijziging.
+     */
+    private function prijsverschilTekst(array $bestelling, ?int $oudAantal): ?string
+    {
+        if ($oudAantal === null || $oudAantal < 1) {
+            return null;
+        }
+
+        $verschil = ((int) $bestelling['aantal'] - $oudAantal) * (float) $bestelling['tarief'];
+
+        if (abs($verschil) < 0.005) {
+            return 'Er is geen prijsverschil: het aantal is aangepast maar het bedrag blijft gelijk.';
+        }
+
+        return $verschil > 0
+            ? 'Het prijsverschil van ' . euro($verschil) . ' wordt bijbetaald.'
+            : 'Het prijsverschil van ' . euro(abs($verschil)) . ' wordt terugbetaald.';
     }
 
     /**
