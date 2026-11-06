@@ -71,6 +71,8 @@ $router->post('/beheer/events/toevoegen', EvenementController::class, 'opslaan')
 $router->get('/beheer/stands', BeheerController::class, 'stands');
 $router->get('/beheer/stands/toevoegen', BeheerController::class, 'standToevoegen');
 $router->post('/beheer/stands/toevoegen', BeheerController::class, 'standOpslaan');
+$router->get('/beheer/stands/{id}/verwijderen', BeheerController::class, 'standVerwijderen');
+$router->post('/beheer/stands/{id}/verwijderen', BeheerController::class, 'standVerwijderOp');
 $router->get('/beheer/log', BeheerController::class, 'log');
 
 try {

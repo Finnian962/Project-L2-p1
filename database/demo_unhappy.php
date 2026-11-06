@@ -96,10 +96,11 @@ try {
     }
 
     if ($wat === 'stands') {
-        // Unhappy flow stand toevoegen en stand reserveren: twee triggers laten
-        // elke INSERT en UPDATE op de tabel stand falen. sp_stand_toevoegen en
-        // sp_stand_reserveren gaan daardoor terug op nul en de controllers
-        // tonen een nette melding. Herstel gooit de triggers weer weg.
+        // Unhappy flow stand toevoegen, stand reserveren en stand verwijderen:
+        // twee triggers laten elke INSERT en UPDATE op de tabel stand falen.
+        // sp_stand_toevoegen, sp_stand_reserveren en sp_stand_verwijderen gaan
+        // daardoor terug op nul en de controllers tonen een nette melding.
+        // Herstel gooit de triggers weer weg.
         if ($isActief === 1) {
             Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_stand_toevoegen');
             Database::verbinding()->exec('DROP TRIGGER IF EXISTS trg_demo_fout_stand_reserveren');
@@ -119,8 +120,8 @@ try {
         Logger::info('Foutmodus stands gewijzigd via demoscript', ['is_actief' => $isActief]);
 
         echo $isActief === 1
-            ? 'Stand toevoegen en stand reserveren werken weer normaal (happy flow).' . PHP_EOL
-            : 'Stand toevoegen en stand reserveren geven nu een databasefout (unhappy flow).' . PHP_EOL;
+            ? 'Stand toevoegen, stand reserveren en stand verwijderen werken weer normaal (happy flow).' . PHP_EOL
+            : 'Stand toevoegen, stand reserveren en stand verwijderen geven nu een databasefout (unhappy flow).' . PHP_EOL;
 
         exit(0);
     }

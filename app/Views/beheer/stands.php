@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Standenoverzicht van de beheeromgeving: alle stands van een evenement met
- * type, prijs, status en verhuurder.
+ * type, prijs, status en verhuurder, plus de actie Verwijderen per stand.
  *
  * @var list<\App\Entities\Evenement> $evenementen
  * @var \App\Entities\Evenement|null  $evenement
@@ -20,6 +20,8 @@ declare(strict_types=1);
         <p class="pagina-kop__tekst">
             Overzicht van alle stands van de gekozen editie, inclusief de status
             (beschikbaar of gereserveerd) en de standhouder die de stand heeft.
+            Met de knop <strong>Verwijderen</strong> haal je een stand uit het
+            aanbod; dat vraagt altijd om een bevestiging.
         </p>
 
         <div class="pagina-kop__acties">
@@ -70,7 +72,7 @@ declare(strict_types=1);
 
             <div class="tabel-omhulsel">
                 <table class="tabel">
-                    <caption class="visueel-verborgen">Stands met type, prijs, status en verhuurder</caption>
+                    <caption class="visueel-verborgen">Stands met type, prijs, status, verhuurder en acties</caption>
                     <thead>
                         <tr>
                             <th scope="col">Nr.</th>
@@ -79,6 +81,7 @@ declare(strict_types=1);
                             <th scope="col">Status</th>
                             <th scope="col">Standhouder</th>
                             <th scope="col">Opmerking</th>
+                            <th scope="col">Acties</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,6 +101,13 @@ declare(strict_types=1);
                                     <?= e($stand['verkoper_naam'] ?? '—') ?>
                                 </td>
                                 <td data-label="Opmerking"><?= e($stand['opmerking'] ?? '—') ?></td>
+                                <td data-label="Acties">
+                                    <a
+                                        class="knop knop--klein knop--leeg"
+                                        href="<?= e(url('/beheer/stands/' . (int) $stand['id'] . '/verwijderen')
+                                            . ($evenement !== null ? '?event=' . $evenement->id : '')) ?>"
+                                    >Verwijderen</a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

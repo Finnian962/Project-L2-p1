@@ -234,6 +234,114 @@ final class BeheerController extends Controller
     }
 
     /**
+     * GET /beheer/stands/{id}/verwijderen
+     * Bevestigingsscherm waarop de beheerder ziet om welke stand het gaat en
+     * het verwijderen bevestigt. Alleen voor beheerders.
+     */
+    public function standVerwijderen(Request $request, string $id): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        $gegevens = $this->haalVerwijderGegevens($request, $id);
+
+        // Unhappy flow: de database is niet bereikbaar (503).
+        if ($gegevens['databaseFout']) {
+            $this->toonVerwijderen($gegevens, 503);
+
+            return;
+        }
+
+        // Unhappy flow: de stand bestaat niet of is net verwijderd (404).
+        if ($gegevens['stand'] === null) {
+            $gegevens['foutmelding'] = 'Deze stand is niet meer beschikbaar.';
+            $gegevens['foutKop'] = 'De stand is niet meer beschikbaar';
+            $this->toonVerwijderen($gegevens, 404);
+
+            return;
+        }
+
+        $this->toonVerwijderen($gegevens);
+    }
+
+    /**
+     * POST /beheer/stands/{id}/verwijderen
+     * Verwijdert de stand nadat de beheerder dat op het bevestigingsscherm
+     * bevestigd heeft en stuurt terug naar het standenoverzicht.
+     */
+    public function standVerwijderOp(Request $request, string $id): void
+    {
+        if (!$this->vereistRol('beheerder')) {
+            return;
+        }
+
+        $gegevens = $this->haalVerwijderGegevens($request, $id);
+
+        // Unhappy flow: de database is niet bereikbaar (503); er is niets gewijzigd.
+        if ($gegevens['databaseFout']) {
+            $this->toonVerwijderen($gegevens, 503);
+
+            return;
+        }
+
+        // Unhappy flow: de stand is net door iemand anders verwijderd (404).
+        if ($gegevens['stand'] === null) {
+            Logger::warning('Stand verwijderen: stand niet (meer) gevonden', ['stand_id' => $id]);
+
+            $gegevens['foutmelding'] = 'Deze stand is niet meer beschikbaar.';
+            $gegevens['foutKop'] = 'De stand is niet meer beschikbaar';
+            $this->toonVerwijderen($gegevens, 404);
+
+            return;
+        }
+
+        $stand = $gegevens['stand'];
+
+        try {
+            $aantal = (new StandModel())->verwijder((int) $id);
+        } catch (DatabaseException $fout) {
+            // Unhappy flow: de database ligt plat of de demoschakelaar staat aan.
+            Logger::exception($fout, 'Stand kon niet worden verwijderd');
+
+            $gegevens['foutmelding'] = $fout->getMessage();
+            $gegevens['foutKop'] = 'De stand is niet verwijderd';
+            $gegevens['foutSoort'] = 'fout';
+            $this->toonVerwijderen($gegevens, 503);
+
+            return;
+        }
+
+        // Unhappy flow: er was niets te verwijderen, dus de stand was al weg.
+        if ($aantal === 0) {
+            Logger::warning('Stand verwijderen: niets gewijzigd', ['stand_id' => $id]);
+
+            $gegevens['stand'] = null;
+            $gegevens['foutmelding'] = 'Deze stand is niet meer beschikbaar.';
+            $gegevens['foutKop'] = 'De stand is niet meer beschikbaar';
+            $this->toonVerwijderen($gegevens, 404);
+
+            return;
+        }
+
+        Logger::info('Stand verwijderd', [
+            'stand_id'       => (int) $id,
+            'evenement'      => $stand['evenement_naam'],
+            'stand_type'     => $stand['stand_type'],
+            'prijs'          => $stand['prijs'],
+            'verwijderdDoor' => Auth::gebruikersnaam(),
+        ]);
+
+        Session::melding('De stand is verwijderd.', 'info', 'Stand verwijderd');
+
+        $evenementId = $gegevens['evenementId'] > 0
+            ? $gegevens['evenementId']
+            : (int) $stand['evenement_id'];
+
+        $this->redirect('/beheer/stands?event=' . $evenementId);
+    }
+
+    /**
      * GET /beheer/log
      * Toont de laatste regels uit de technische log.
      */
@@ -251,6 +359,50 @@ final class BeheerController extends Controller
             'regels'  => $regels,
             'melding' => $regels === [] ? 'Er zijn vandaag nog geen logregels geschreven.' : null,
         ]);
+    }
+
+    /**
+     * De gegevens voor het bevestigingsscherm van het verwijderen: de stand
+     * zelf, de editie waar het overzicht op stond en een eventuele fout.
+     *
+     * @return array<string, mixed>
+     */
+    private function haalVerwijderGegevens(Request $request, string $standId): array
+    {
+        $gegevens = [
+            'titel'        => 'Stand verwijderen',
+            'pad'          => '/beheer',
+            'stand'        => null,
+            // Editie van het overzicht waar de beheerder vandaan kwam, zodat
+            // Annuleren en de melding na het verwijderen daarop terugkomen.
+            'evenementId'  => $request->queryAlsGetal('event') ?: $request->postAlsGetal('event'),
+            'foutmelding'  => null,
+            'foutKop'      => 'De stand is niet verwijderd',
+            'foutSoort'    => 'waarschuwing',
+            'databaseFout' => false,
+        ];
+
+        // Unhappy flow: een id dat geen getal is, kan geen stand zijn (404).
+        if (!ctype_digit($standId)) {
+            return $gegevens;
+        }
+
+        try {
+            $gegevens['stand'] = (new StandModel())->haal((int) $standId);
+        } catch (DatabaseException $fout) {
+            Logger::exception($fout, 'Standgegevens konden niet worden geladen');
+
+            $gegevens['foutmelding'] = $fout->getMessage();
+            $gegevens['foutKop'] = 'De stand kon niet worden geladen';
+            $gegevens['databaseFout'] = true;
+        }
+
+        // Komt de beheerder zonder editie binnen, dan geldt die van de stand.
+        if ($gegevens['stand'] !== null && $gegevens['evenementId'] === 0) {
+            $gegevens['evenementId'] = (int) $gegevens['stand']['evenement_id'];
+        }
+
+        return $gegevens;
     }
 
     /**
@@ -351,5 +503,16 @@ final class BeheerController extends Controller
     private function toonToevoegen(array $gegevens, int $httpStatus): void
     {
         $this->toon('beheer/stand-toevoegen', $gegevens, $httpStatus);
+    }
+
+    /**
+     * Toont het bevestigingsscherm van het verwijderen met de eventuele
+     * foutmelding (404 wanneer de stand weg is, 503 wanneer de database plat is).
+     *
+     * @param array<string, mixed> $gegevens
+     */
+    private function toonVerwijderen(array $gegevens, int $httpStatus = 200): void
+    {
+        $this->toon('beheer/stand-verwijderen', $gegevens, $httpStatus);
     }
 }

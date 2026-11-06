@@ -141,13 +141,12 @@ geschreven: het standenoverzicht telt niet omhoog en de stand blijft
 
 ## Stand wijzigen en verwijderen (beheerder)
 
-**Status: nog niet gebouwd.** Dit zijn de afgesproken user stories voor de
-knoppen **Wijzigen** en **Verwijderen** op `/beheer/stands` (branches
-`Feature-stand-wijzigen` en `Feature-stand-verwijderen`). De meldingen hieronder
-zijn de acceptatiecriteria: zo moet het straks gedragen, zodra de twee verhalen
-gebouwd zijn.
+**Status: verwijderen is gebouwd, wijzigen nog niet.** Hieronder staan de twee
+afgesproken user stories voor de knoppen **Wijzigen** en **Verwijderen** op
+`/beheer/stands` (branches `Feature-stand-wijzigen` en
+`Feature-stand-verwijderen`). De meldingen hieronder zijn de acceptatiecriteria.
 
-### User story 1 — Stand wijzigen
+### User story 1 — Stand wijzigen (nog niet gebouwd)
 
 **Als** beheerder **wil ik** een bestaande stand wijzigen (editie, standtype,
 prijs en opmerking) **zodat** de gegevens in het overzicht kloppen en er geen
@@ -169,19 +168,23 @@ dubbele stand ontstaat.
   (HTTP 503), er wordt niets gewijzigd; `php database/demo_unhappy.php aan
   stands` herstelt.
 
-### User story 2 — Stand verwijderen
+> **Nog te bouwen**: `sp_stand_wijzigen`, een route
+> `/beheer/stands/{id}/wijzigen` (GET + POST) en een wijzigformulier. De knop
+> **Wijzigen** staat nog niet in het overzicht.
+
+### User story 2 — Stand verwijderen (gebouwd)
 
 **Als** beheerder **wil ik** een stand verwijderen nadat ik dat bevestigd heb
 **zodat** er nooit per ongeluk een stand uit het aanbod verdwijnt.
 
-- **Happy flow**: op `/beheer/stands` knop **Verwijderen** →
+- **Happy flow**: op `/beheer/stands` knop **Verwijderen** (kolom *Acties*) →
   bevestigingsscherm *"Stand verwijderen"* met de gegevens van die stand →
   knop **Verwijderen** → melding *"De stand is verwijderd."* → terug op
   `/beheer/stands`, waar de stand niet meer staat en ook niet meer meetelt in
   het aanbod op `/stands`.
 - **Unhappy flow (annuleren)**: op het bevestigingsscherm knop **Annuleren** →
-  terug naar `/beheer/stands`, er is niets verwijderd en de stand staat er
-  nog.
+  terug naar `/beheer/stands`, er is niets verwijderd, geen melding en de
+  stand staat er nog.
 - **Unhappy flow (stand bestaat al niet meer)**: verwijderen wat al weg is →
   melding *"Deze stand is niet meer beschikbaar."* (HTTP 404), er verandert
   niets.
@@ -190,30 +193,36 @@ dubbele stand ontstaat.
   (HTTP 503) en de stand blijft staan; `php database/demo_unhappy.php aan
   stands` herstelt.
 
+**Zo is het gebouwd**: de knop **Verwijderen** in de kolom *Acties* van
+`/beheer/stands` → GET `/beheer/stands/{id}/verwijderen` toont het
+bevestigingsscherm (`sp_stand_details`) → POST op hetzelfde adres voert
+`sp_stand_verwijderen` uit. Verwijderen is **zacht** (`is_actief = 0`), net als
+het annuleren van een ticket: de stand verdwijnt uit `/beheer/stands` én uit
+het aanbod op `/stands`, terwijl de gegevens van een reservering bewaard
+blijven. Alleen een beheerder mag dit (`vereistRol('beheerder')`).
+
+**Database plat (503)**: `sp_stand_verwijderen` doet een `UPDATE`, dus de
+`BEFORE UPDATE`-trigger van `php database/demo_unhappy.php uit stands` blokkeert
+de verwijdering automatisch — er is geen aparte `BEFORE DELETE`-trigger nodig.
+
 ### Hoe je dit laat zien in de review
 
 1. Inloggen als `noah` → menu **Beheer** → `/beheer/stands`.
-2. **Wijzigen**: een prijs aanpassen → **Opslaan** → melding en de nieuwe
-   prijs in de lijst; het aantal stands is gelijk gebleven.
-3. **Wijzigen met ongeldige gegevens**: prijs `abc` → rode foutmelding bij
-   het veld, de andere waarden blijven staan en de lijst is ongewijzigd.
-4. **Verwijderen**: **Verwijderen** → bevestigingsscherm → **Verwijderen** →
-   melding en de stand is uit de lijst.
-5. **Verwijderen annuleren**: nog een keer **Verwijderen** → **Annuleren** →
-   terug op het overzicht, de stand staat er nog.
-6. **Database plat** (alleen als je de 503 wilt tonen):
+2. **Verwijderen (happy)**: **Verwijderen** → bevestigingsscherm →
+   **Verwijderen** → melding *"De stand is verwijderd."* en de stand is uit de
+   lijst; het aantal stands is met één omlaag.
+3. **Verwijderen annuleren**: nog een keer **Verwijderen** → **Annuleren** →
+   terug op het overzicht, de stand staat er nog en het aantal is gelijk.
+4. **Stand bestaat al niet meer (404)**: de verwijderde stand opnieuw openen
+   (adres uit de adresbalk) → melding *"Deze stand is niet meer beschikbaar."*
+   (HTTP 404), zonder bevestigingsknop.
+5. **Database plat (503)** — eerst het scherm openen, dan de schakelaar aan:
    ```
-   php database/demo_unhappy.php uit stands    # handeling faalt nu
+   php database/demo_unhappy.php uit stands    # verwijderen faalt nu
    php database/demo_unhappy.php aan stands    # weer normaal
    ```
-
-> **Nog te doen vóór de review**: de twee branches hebben nog geen eigen code,
-> dus stap 2 tot en met 5 werkt pas na het bouwen — `sp_stand_wijzigen` en
-> `sp_stand_verwijderen`, twee routes in `public/index.php`, een
-> wijzigformulier en een bevestigingsscherm. Voor de 503 van het verwijderen
-> moet in `database/demo_unhappy.php` bij optie `stands` bovendien nog een
-> `BEFORE DELETE`-trigger komen: de huidige triggers blokkeren alleen `INSERT`
-> en `UPDATE`.
+6. **Nog niet te tonen — Stand wijzigen**: pas 2 en 3 van user story 1 werken
+   pas ná het bouwen ervan.
 
 ## Verkopersoverzicht
 

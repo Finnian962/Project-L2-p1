@@ -72,6 +72,33 @@ final class StandModel extends Model
     }
 
     /**
+     * De gegevens van één stand voor het bevestigingsscherm van het verwijderen.
+     *
+     * @return array<string, mixed>|null null wanneer de stand niet (meer) bestaat.
+     *
+     * @throws DatabaseException Wanneer de gegevens niet opgehaald kunnen worden.
+     */
+    public function haal(int $standId): ?array
+    {
+        return $this->roepProcedureAanVoorEenRij('sp_stand_details', [$standId]);
+    }
+
+    /**
+     * Verwijdert een stand (zacht: is_actief = 0), zodat hij nergens meer
+     * verschijnt maar de gegevens van een reservering bewaard blijven.
+     *
+     * @return int Aantal gewijzigde rijen: 1 = verwijderd, 0 = bestond niet meer.
+     *
+     * @throws DatabaseException Wanneer de verwijdering niet opgeslagen kan worden.
+     */
+    public function verwijder(int $standId): int
+    {
+        $rij = $this->roepProcedureAanVoorEenRij('sp_stand_verwijderen', [$standId]) ?? [];
+
+        return (int) ($rij['aantal_gewijzigd'] ?? 0);
+    }
+
+    /**
      * De stands die nog vrij zijn voor een evenement (0 = alle evenementen).
      *
      * @return list<array<string, mixed>>

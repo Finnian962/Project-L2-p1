@@ -34,6 +34,8 @@ DROP PROCEDURE IF EXISTS sp_stand_overzicht;
 DROP PROCEDURE IF EXISTS sp_stand_beschikbaar;
 DROP PROCEDURE IF EXISTS sp_stand_toevoegen;
 DROP PROCEDURE IF EXISTS sp_stand_reserveren;
+DROP PROCEDURE IF EXISTS sp_stand_details;
+DROP PROCEDURE IF EXISTS sp_stand_verwijderen;
 DROP PROCEDURE IF EXISTS sp_reservering_overzicht;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_events;
 DROP PROCEDURE IF EXISTS sp_demo_zichtbaarheid_tijdsloten;
@@ -1196,6 +1198,62 @@ BEGIN
         CASE WHEN v_aantal = 1 THEN 'Gereserveerd'
              ELSE (SELECT CASE WHEN verhuurd_status = 1 THEN 'Gereserveerd' ELSE 'Beschikbaar' END
                    FROM stand WHERE id = p_stand_id) END     AS status;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_details
+-- De gegevens van één stand met evenement en verhuurder, voor het
+-- bevestigingsscherm van 'Stand verwijderen'. Inactieve stands komen niet
+-- terug: wie een stand verwijdert die al weg is, krijgt geen rij.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_details(IN p_stand_id INT UNSIGNED)
+BEGIN
+    SELECT
+        s.id,
+        s.evenement_id,
+        e.naam                     AS evenement_naam,
+        e.datum                    AS evenement_datum,
+        s.stand_type,
+        s.prijs,
+        s.verhuurd_status,
+        CASE WHEN s.verhuurd_status = 1 THEN 'Gereserveerd' ELSE 'Beschikbaar' END AS status,
+        s.opmerking,
+        s.datum_aangemaakt,
+        v.naam                     AS verkoper_naam
+    FROM stand s
+    INNER JOIN evenement e
+        ON e.id = s.evenement_id
+    LEFT JOIN verkoper v
+        ON v.id = s.verkoper_id
+       AND v.is_actief = 1
+    WHERE s.id = p_stand_id
+      AND s.is_actief = 1
+    LIMIT 1;
+END$$
+
+-- -----------------------------------------------------------------------------
+-- sp_stand_verwijderen
+-- Verwijdert een stand (actie van de beheerder). Net als bij het annuleren van
+-- een ticket gebeurt dat zacht: is_actief = 0. De stand verdwijnt daardoor uit
+-- het beheeroverzicht én uit het aanbod op /stands, terwijl de gegevens van een
+-- eventuele reservering bewaard blijven. De WHERE-clausule controleert dat de
+-- stand nog actief is; ROW_COUNT() is 0 wanneer hij al verwijderd was, zodat de
+-- controller een 404 kan tonen in plaats van een tweede melding.
+-- De UPDATE gaat door de BEFORE UPDATE-trigger van demo_unhappy.php, waardoor
+-- dezelfde demoschakelaar ook de databasefout (503) van het verwijderen geeft.
+-- -----------------------------------------------------------------------------
+CREATE PROCEDURE sp_stand_verwijderen(IN p_stand_id INT UNSIGNED)
+BEGIN
+    DECLARE v_aantal INT UNSIGNED DEFAULT 0;
+
+    UPDATE stand
+    SET is_actief = 0
+    WHERE id = p_stand_id
+      AND is_actief = 1;
+
+    SET v_aantal = ROW_COUNT();
+
+    SELECT v_aantal AS aantal_gewijzigd;
 END$$
 
 -- -----------------------------------------------------------------------------
