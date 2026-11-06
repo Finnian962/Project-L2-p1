@@ -139,6 +139,82 @@ blijven de ingevulde waarden in het formulier staan en wordt er niets
 geschreven: het standenoverzicht telt niet omhoog en de stand blijft
 *Beschikbaar*.
 
+## Stand wijzigen en verwijderen (beheerder)
+
+**Status: nog niet gebouwd.** Dit zijn de afgesproken user stories voor de
+knoppen **Wijzigen** en **Verwijderen** op `/beheer/stands` (branches
+`Feature-stand-wijzigen` en `Feature-stand-verwijderen`). De meldingen hieronder
+zijn de acceptatiecriteria: zo moet het straks gedragen, zodra de twee verhalen
+gebouwd zijn.
+
+### User story 1 — Stand wijzigen
+
+**Als** beheerder **wil ik** een bestaande stand wijzigen (editie, standtype,
+prijs en opmerking) **zodat** de gegevens in het overzicht kloppen en er geen
+dubbele stand ontstaat.
+
+- **Happy flow**: op `/beheer/stands` knop **Wijzigen** → formulier met de
+  huidige waarden al ingevuld → gegevens aanpassen → knop **Opslaan** → melding
+  *"De stand is gewijzigd."* → terug op `/beheer/stands`, waar de stand de
+  nieuwe waarden toont en het aantal stands niet veranderd is.
+- **Unhappy flow (ongeldige invoer)**: een verplicht veld leeg laten of prijs
+  `abc` invullen → veldfout *"Vul een geldige prijs in, bijvoorbeeld 495,00."*
+  (HTTP 422). Er wordt niets gewijzigd en de andere ingevulde waarden blijven
+  staan.
+- **Unhappy flow (stand bestaat niet meer)**: de stand inmiddels in een andere
+  tab verwijderd → melding *"Deze stand is niet meer beschikbaar."* (HTTP 404)
+  en terug naar het overzicht.
+- **Unhappy flow (database plat)**: `php database/demo_unhappy.php uit stands`
+  → opslaan toont *"Onze excuses, er is een error. We zijn ermee bezig."*
+  (HTTP 503), er wordt niets gewijzigd; `php database/demo_unhappy.php aan
+  stands` herstelt.
+
+### User story 2 — Stand verwijderen
+
+**Als** beheerder **wil ik** een stand verwijderen nadat ik dat bevestigd heb
+**zodat** er nooit per ongeluk een stand uit het aanbod verdwijnt.
+
+- **Happy flow**: op `/beheer/stands` knop **Verwijderen** →
+  bevestigingsscherm *"Stand verwijderen"* met de gegevens van die stand →
+  knop **Verwijderen** → melding *"De stand is verwijderd."* → terug op
+  `/beheer/stands`, waar de stand niet meer staat en ook niet meer meetelt in
+  het aanbod op `/stands`.
+- **Unhappy flow (annuleren)**: op het bevestigingsscherm knop **Annuleren** →
+  terug naar `/beheer/stands`, er is niets verwijderd en de stand staat er
+  nog.
+- **Unhappy flow (stand bestaat al niet meer)**: verwijderen wat al weg is →
+  melding *"Deze stand is niet meer beschikbaar."* (HTTP 404), er verandert
+  niets.
+- **Unhappy flow (database plat)**: `php database/demo_unhappy.php uit stands`
+  → verwijderen toont *"Onze excuses, er is een error. We zijn ermee bezig."*
+  (HTTP 503) en de stand blijft staan; `php database/demo_unhappy.php aan
+  stands` herstelt.
+
+### Hoe je dit laat zien in de review
+
+1. Inloggen als `noah` → menu **Beheer** → `/beheer/stands`.
+2. **Wijzigen**: een prijs aanpassen → **Opslaan** → melding en de nieuwe
+   prijs in de lijst; het aantal stands is gelijk gebleven.
+3. **Wijzigen met ongeldige gegevens**: prijs `abc` → rode foutmelding bij
+   het veld, de andere waarden blijven staan en de lijst is ongewijzigd.
+4. **Verwijderen**: **Verwijderen** → bevestigingsscherm → **Verwijderen** →
+   melding en de stand is uit de lijst.
+5. **Verwijderen annuleren**: nog een keer **Verwijderen** → **Annuleren** →
+   terug op het overzicht, de stand staat er nog.
+6. **Database plat** (alleen als je de 503 wilt tonen):
+   ```
+   php database/demo_unhappy.php uit stands    # handeling faalt nu
+   php database/demo_unhappy.php aan stands    # weer normaal
+   ```
+
+> **Nog te doen vóór de review**: de twee branches hebben nog geen eigen code,
+> dus stap 2 tot en met 5 werkt pas na het bouwen — `sp_stand_wijzigen` en
+> `sp_stand_verwijderen`, twee routes in `public/index.php`, een
+> wijzigformulier en een bevestigingsscherm. Voor de 503 van het verwijderen
+> moet in `database/demo_unhappy.php` bij optie `stands` bovendien nog een
+> `BEFORE DELETE`-trigger komen: de huidige triggers blokkeren alleen `INSERT`
+> en `UPDATE`.
+
 ## Verkopersoverzicht
 
 Route: `/verkopers` — alle shops en privéverkopers met een stand op een actief
